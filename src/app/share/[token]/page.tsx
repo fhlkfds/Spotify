@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { StatCard } from "@/components/stats/stat-card";
 import { TopArtists } from "@/components/stats/top-artists";
@@ -13,11 +13,11 @@ import { Clock, Music, Users, Disc3, Eye } from "lucide-react";
 import type { SharedStats } from "@/types";
 
 interface SharePageProps {
-  params: Promise<{ token: string }>;
+  params: { token: string };
 }
 
 export default function SharePage({ params }: SharePageProps) {
-  const { token } = use(params);
+  const { token } = params;
   const [data, setData] = useState<SharedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
