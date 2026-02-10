@@ -9,6 +9,8 @@ const scopes = [
   "user-top-read",
   "user-read-playback-state",
   "user-read-currently-playing",
+  "playlist-read-private",
+  "playlist-read-collaborative",
 ].join(" ");
 
 export const authOptions: NextAuthOptions = {

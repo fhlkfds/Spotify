@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SpotifyClient } from "@/lib/spotify";
+import type { SpotifyPlaylist, SpotifyPlaylistTrack } from "@/types";
 
 // Mood keywords for genre analysis
 const MOOD_KEYWORDS: Record<string, string[]> = {
@@ -62,9 +63,21 @@ export async function GET() {
 
     const spotify = new SpotifyClient(account.access_token);
 
-    // Fetch user's playlists
-    const playlistsResponse = await spotify.getUserPlaylists(50);
-    const playlists = playlistsResponse.items;
+    // Fetch all of the user's playlists (paginated)
+    const playlists: SpotifyPlaylist[] = [];
+    const playlistLimit = 50;
+    let playlistOffset = 0;
+    let totalPlaylists = 0;
+
+    do {
+      const playlistsResponse = await spotify.getUserPlaylists(
+        playlistLimit,
+        playlistOffset
+      );
+      playlists.push(...playlistsResponse.items);
+      totalPlaylists = playlistsResponse.total;
+      playlistOffset += playlistsResponse.items.length;
+    } while (playlists.length < totalPlaylists);
 
     // Get user's play history for completion tracking
     const plays = await prisma.play.findMany({
@@ -88,13 +101,35 @@ export async function GET() {
       }
     }
 
+    const fetchAllPlaylistTracks = async (
+      playlistId: string
+    ): Promise<SpotifyPlaylistTrack[]> => {
+      const allTracks: SpotifyPlaylistTrack[] = [];
+      const trackLimit = 100;
+      let trackOffset = 0;
+      let totalTracks = 0;
+
+      do {
+        const tracksResponse = await spotify.getPlaylistTracks(
+          playlistId,
+          trackLimit,
+          trackOffset
+        );
+        allTracks.push(...tracksResponse.items);
+        totalTracks = tracksResponse.total;
+        trackOffset += tracksResponse.items.length;
+      } while (allTracks.length < totalTracks);
+
+      return allTracks;
+    };
+
     // Analyze each playlist
     const analyzedPlaylists = await Promise.all(
-      playlists.slice(0, 20).map(async (playlist) => {
+      playlists.map(async (playlist) => {
         try {
-          // Fetch playlist tracks
-          const tracksResponse = await spotify.getPlaylistTracks(playlist.id, 100);
-          const tracks = tracksResponse.items.filter((item) => item.track !== null);
+          // Fetch playlist tracks (paginated)
+          const tracksResponse = await fetchAllPlaylistTracks(playlist.id);
+          const tracks = tracksResponse.filter((item) => item.track !== null);
 
           if (tracks.length === 0) {
             return null;
@@ -198,7 +233,7 @@ export async function GET() {
 
     return NextResponse.json({
       playlists: validPlaylists,
-      totalPlaylists: playlistsResponse.total,
+      totalPlaylists,
     });
   } catch (error) {
     console.error("Playlists API error:", error);
