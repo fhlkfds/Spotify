@@ -168,3 +168,22 @@ export interface SharedStats {
   viewCount: number;
   createdAt: Date;
 }
+
+// Recommendation types
+export interface RecommendedTrack {
+  id: string;
+  name: string;
+  artistName: string;
+  albumName: string;
+  albumImageUrl: string | null;
+  durationMs: number;
+  spotifyUrl: string;
+}
+
+export interface RecommendedArtist {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  genres: string[];
+  spotifyUrl: string;
+}

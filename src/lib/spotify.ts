@@ -104,6 +104,34 @@ export class SpotifyClient {
     const ids = trackIds.slice(0, 50).join(",");
     return this.fetch<{ tracks: SpotifyTrack[] }>(`/tracks?ids=${ids}`);
   }
+
+  /**
+   * Get track recommendations based on a seed track
+   * @param seedTrackId The track ID to base recommendations on
+   * @param limit Number of recommendations (max 100, default 10)
+   */
+  async getRecommendations(
+    seedTrackId: string,
+    limit: number = 10
+  ): Promise<{ tracks: SpotifyTrack[] }> {
+    const params = new URLSearchParams({
+      seed_tracks: seedTrackId,
+      limit: String(limit),
+    });
+    return this.fetch<{ tracks: SpotifyTrack[] }>(`/recommendations?${params}`);
+  }
+
+  /**
+   * Get related artists for a given artist
+   * @param artistId The artist ID to find related artists for
+   */
+  async getRelatedArtists(
+    artistId: string
+  ): Promise<{ artists: SpotifyArtist[] }> {
+    return this.fetch<{ artists: SpotifyArtist[] }>(
+      `/artists/${artistId}/related-artists`
+    );
+  }
 }
 
 /**
