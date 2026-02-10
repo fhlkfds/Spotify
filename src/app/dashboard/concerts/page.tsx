@@ -29,11 +29,12 @@ interface Concert {
   time: string;
   price: string;
   ticketUrl: string;
-  distance: number;
+  distance: number | null;
 }
 
 interface ConcertsData {
   location: string;
+  radiusMiles: number;
   concerts: Concert[];
   concertsByMonth: Record<string, Concert[]>;
   totalConcerts: number;
@@ -66,7 +67,9 @@ export default function ConcertsPage() {
     async function fetchConcerts() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/concerts?location=${encodeURIComponent(location)}`);
+        const res = await fetch(
+          `/api/concerts?location=${encodeURIComponent(location)}&radiusMiles=100`
+        );
         if (res.ok) {
           const concertsData = await res.json();
           setData(concertsData);
@@ -148,7 +151,10 @@ export default function ConcertsPage() {
           {location && (
             <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
               <Navigation className="h-4 w-4" />
-              <span>Showing concerts near: <strong className="text-foreground">{location}</strong></span>
+              <span>
+                Showing concerts within 100 miles of:{" "}
+                <strong className="text-foreground">{location}</strong>
+              </span>
             </div>
           )}
         </CardContent>
@@ -196,7 +202,7 @@ export default function ConcertsPage() {
             <StatCard
               title="Location"
               value={data.location}
-              description="Search area"
+              description={`${data.radiusMiles} miles`}
               icon={MapPin}
             />
           </div>
@@ -250,7 +256,9 @@ export default function ConcertsPage() {
                                 <Clock className="h-3 w-3" />
                                 {concert.time}
                               </span>
-                              <Badge variant="secondary">{concert.distance} mi away</Badge>
+                              <Badge variant="secondary">
+                                {concert.distance == null ? "Distance unknown" : `${concert.distance} mi away`}
+                              </Badge>
                             </div>
                           </div>
 
@@ -279,11 +287,10 @@ export default function ConcertsPage() {
           ))}
 
           {/* Disclaimer */}
-          <Card className="glass border-yellow-500/30">
+          <Card className="glass border-spotify-green/30">
             <CardContent className="py-4">
               <p className="text-sm text-muted-foreground text-center">
-                <strong>Note:</strong> Concert data is simulated for demonstration purposes.
-                In production, this would integrate with Ticketmaster, Songkick, or Bandsintown APIs.
+                <strong>Source:</strong> Concert data provided by Ticketmaster.
               </p>
             </CardContent>
           </Card>
