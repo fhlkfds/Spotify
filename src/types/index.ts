@@ -100,3 +100,52 @@ export interface TimeRange {
   value: "today" | "week" | "month" | "all";
   startDate: Date;
 }
+
+// Spotify Import Types
+
+// StreamingHistory format (Account Data - last year)
+export interface StreamingHistoryEntry {
+  endTime: string;           // "2024-01-15 14:30"
+  artistName: string;
+  trackName: string;
+  msPlayed: number;
+}
+
+// Extended streaming history format (Full history)
+export interface ExtendedHistoryEntry {
+  ts: string;                // ISO timestamp
+  master_metadata_track_name: string | null;
+  master_metadata_album_artist_name: string | null;
+  master_metadata_album_album_name: string | null;
+  spotify_track_uri: string | null;  // "spotify:track:xxx"
+  ms_played: number;
+}
+
+// Normalized entry for processing
+export interface NormalizedHistoryEntry {
+  playedAt: Date;
+  artistName: string;
+  trackName: string;
+  albumName: string | null;
+  trackId: string | null;    // Only available in extended format
+  msPlayed: number;
+}
+
+// Import result types
+export interface ImportResult {
+  success: boolean;
+  imported: number;
+  duplicates: number;
+  failed: number;
+  skipped: number;  // Tracks played < 30 seconds
+  errors: string[];
+}
+
+export interface ImportProgress {
+  total: number;
+  processed: number;
+  imported: number;
+  duplicates: number;
+  failed: number;
+  skipped: number;
+}

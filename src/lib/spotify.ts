@@ -1,4 +1,4 @@
-import type { SpotifyRecentlyPlayed, SpotifyArtist } from "@/types";
+import type { SpotifyRecentlyPlayed, SpotifyArtist, SpotifyTrack } from "@/types";
 
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 
@@ -72,6 +72,37 @@ export class SpotifyClient {
     images: { url: string }[];
   }> {
     return this.fetch("/me");
+  }
+
+  /**
+   * Search for a track by name and artist
+   * Returns the first matching track or null if not found
+   */
+  async searchTrack(
+    trackName: string,
+    artistName: string
+  ): Promise<SpotifyTrack | null> {
+    const query = encodeURIComponent(`track:${trackName} artist:${artistName}`);
+    const result = await this.fetch<{
+      tracks: { items: SpotifyTrack[] };
+    }>(`/search?q=${query}&type=track&limit=1`);
+
+    return result.tracks.items[0] || null;
+  }
+
+  /**
+   * Get track by ID
+   */
+  async getTrack(trackId: string): Promise<SpotifyTrack> {
+    return this.fetch<SpotifyTrack>(`/tracks/${trackId}`);
+  }
+
+  /**
+   * Get multiple tracks by ID (max 50)
+   */
+  async getTracks(trackIds: string[]): Promise<{ tracks: SpotifyTrack[] }> {
+    const ids = trackIds.slice(0, 50).join(",");
+    return this.fetch<{ tracks: SpotifyTrack[] }>(`/tracks?ids=${ids}`);
   }
 }
 

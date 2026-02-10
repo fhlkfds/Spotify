@@ -10,6 +10,7 @@ import {
   TrendingUp,
   BarChart3,
   Music2,
+  Settings,
 } from "lucide-react";
 
 const navigation = [
@@ -18,6 +19,7 @@ const navigation = [
   { name: "Albums", href: "/dashboard/albums", icon: Disc3 },
   { name: "Trends", href: "/dashboard/trends", icon: TrendingUp },
   { name: "Compare", href: "/dashboard/compare", icon: BarChart3 },
+  { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 export function Sidebar() {
