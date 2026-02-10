@@ -34,13 +34,34 @@ export async function GET(request: NextRequest) {
       const totalMs = plays.reduce((sum, p) => sum + p.track.durationMs, 0);
       const firstPlay = plays[plays.length - 1]?.playedAt;
 
-      // Top tracks for this artist
-      const trackPlays: Record<string, { track: typeof plays[0]["track"]; count: number }> = {};
+      // All tracks for this artist with first/last listen times
+      const trackPlays: Record<string, {
+        track: typeof plays[0]["track"];
+        album: typeof plays[0]["album"];
+        count: number;
+        firstListen: Date;
+        lastListen: Date;
+        totalMs: number;
+      }> = {};
       for (const play of plays) {
         if (!trackPlays[play.trackId]) {
-          trackPlays[play.trackId] = { track: play.track, count: 0 };
+          trackPlays[play.trackId] = {
+            track: play.track,
+            album: play.album,
+            count: 0,
+            firstListen: play.playedAt,
+            lastListen: play.playedAt,
+            totalMs: 0,
+          };
         }
         trackPlays[play.trackId].count++;
+        trackPlays[play.trackId].totalMs += play.track.durationMs;
+        if (play.playedAt < trackPlays[play.trackId].firstListen) {
+          trackPlays[play.trackId].firstListen = play.playedAt;
+        }
+        if (play.playedAt > trackPlays[play.trackId].lastListen) {
+          trackPlays[play.trackId].lastListen = play.playedAt;
+        }
       }
 
       const topTracks = Object.values(trackPlays)
@@ -51,6 +72,53 @@ export async function GET(request: NextRequest) {
           name: t.track.name,
           playCount: t.count,
           durationMs: t.track.durationMs,
+        }));
+
+      // All tracks (not limited)
+      const allTracks = Object.values(trackPlays)
+        .sort((a, b) => b.count - a.count)
+        .map((t) => ({
+          id: t.track.id,
+          name: t.track.name,
+          albumName: t.album.name,
+          albumImageUrl: t.album.imageUrl,
+          playCount: t.count,
+          durationMs: t.track.durationMs,
+          totalMs: t.totalMs,
+          firstListen: t.firstListen,
+          lastListen: t.lastListen,
+        }));
+
+      // Top albums for this artist
+      const albumPlays: Record<string, {
+        album: typeof plays[0]["album"];
+        count: number;
+        totalMs: number;
+        tracks: Set<string>;
+      }> = {};
+      for (const play of plays) {
+        if (!albumPlays[play.albumId]) {
+          albumPlays[play.albumId] = {
+            album: play.album,
+            count: 0,
+            totalMs: 0,
+            tracks: new Set(),
+          };
+        }
+        albumPlays[play.albumId].count++;
+        albumPlays[play.albumId].totalMs += play.track.durationMs;
+        albumPlays[play.albumId].tracks.add(play.trackId);
+      }
+
+      const topAlbums = Object.values(albumPlays)
+        .sort((a, b) => b.totalMs - a.totalMs)
+        .map((a) => ({
+          id: a.album.id,
+          name: a.album.name,
+          imageUrl: a.album.imageUrl,
+          playCount: a.count,
+          totalMs: a.totalMs,
+          trackCount: a.tracks.size,
         }));
 
       // Listening over time
@@ -64,6 +132,8 @@ export async function GET(request: NextRequest) {
         .map(([month, totalMs]) => ({ month, totalMs }))
         .sort((a, b) => a.month.localeCompare(b.month));
 
+      const lastPlay = plays[0]?.playedAt;
+
       return NextResponse.json({
         artist: {
           id: artist.id,
@@ -75,8 +145,11 @@ export async function GET(request: NextRequest) {
           totalMs,
           playCount: plays.length,
           firstPlay,
+          lastPlay,
         },
         topTracks,
+        allTracks,
+        topAlbums,
         listeningOverTime,
       });
     }

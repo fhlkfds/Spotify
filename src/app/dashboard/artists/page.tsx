@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatListeningTime, formatDate } from "@/lib/utils";
@@ -70,8 +71,9 @@ export default function ArtistsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {artists.map((artist, index) => (
-            <Card key={artist.id} className="glass overflow-hidden">
-              <div className="relative h-32 bg-gradient-to-br from-spotify-green/20 to-transparent">
+            <Link key={artist.id} href={`/dashboard/artists/${artist.id}`}>
+              <Card className="glass overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:border-spotify-green/50">
+                <div className="relative h-32 bg-gradient-to-br from-spotify-green/20 to-transparent">
                 {artist.imageUrl && (
                   <Image
                     src={artist.imageUrl}
@@ -127,7 +129,8 @@ export default function ArtistsPage() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
