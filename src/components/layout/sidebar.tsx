@@ -18,6 +18,7 @@ import {
   Brain,
   ListMusic,
   Flame,
+  Download,
 } from "lucide-react";
 
 const navigation = [
@@ -33,6 +34,7 @@ const navigation = [
   { name: "Genre Evolution", href: "/dashboard/genre-evolution", icon: GitBranch },
   { name: "Trends", href: "/dashboard/trends", icon: TrendingUp },
   { name: "Compare", href: "/dashboard/compare", icon: BarChart3 },
+  { name: "Export", href: "/dashboard/export", icon: Download },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

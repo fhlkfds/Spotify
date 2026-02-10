@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatListeningTime } from "@/lib/utils";
 import { Clock, Music, Users, Disc3, Flame } from "lucide-react";
+import { NowPlaying } from "@/components/now-playing";
 import type { ListeningStats, TopArtist, TopTrack, RecentPlay, NewArtist } from "@/types";
 
 interface DashboardData {
@@ -96,18 +97,25 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Time Range Selector */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Tabs value={range} onValueChange={(v) => setRange(v as typeof range)}>
-          <TabsList>
-            <TabsTrigger value="today">Today</TabsTrigger>
-            <TabsTrigger value="week">This Week</TabsTrigger>
-            <TabsTrigger value="month">This Month</TabsTrigger>
-            <TabsTrigger value="all">All Time</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      {/* Now Playing */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <NowPlaying />
+        </div>
+        <div className="flex items-center">
+          <Tabs value={range} onValueChange={(v) => setRange(v as typeof range)} className="w-full">
+            <TabsList className="w-full">
+              <TabsTrigger value="today" className="flex-1">Today</TabsTrigger>
+              <TabsTrigger value="week" className="flex-1">Week</TabsTrigger>
+              <TabsTrigger value="month" className="flex-1">Month</TabsTrigger>
+              <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
+
+      {/* Header */}
+      <h1 className="text-3xl font-bold">Dashboard</h1>
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">

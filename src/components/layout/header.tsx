@@ -4,7 +4,8 @@ import { useSession, signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/layout/search";
-import { RefreshCw, LogOut, Share2 } from "lucide-react";
+import { RefreshCw, LogOut, Share2, Download } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useState } from "react";
 
 export function Header() {
@@ -89,6 +90,7 @@ export function Header() {
           <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
           {syncing ? "Syncing..." : "Sync Now"}
         </Button>
+        <ThemeToggle />
         <Avatar>
           <AvatarImage src={session?.user?.image || ""} />
           <AvatarFallback>
