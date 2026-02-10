@@ -40,6 +40,15 @@ export interface TopArtist {
   totalMs: number;
 }
 
+export interface NewArtist {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  playCount: number;
+  totalMs: number;
+  firstPlayedAt: string;
+}
+
 export interface TopTrack {
   id: string;
   name: string;

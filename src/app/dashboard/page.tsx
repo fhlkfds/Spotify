@@ -6,13 +6,14 @@ import { StatCard } from "@/components/stats/stat-card";
 import { TopArtists } from "@/components/stats/top-artists";
 import { TopTracks } from "@/components/stats/top-tracks";
 import { TopGenres } from "@/components/stats/top-genres";
+import { NewArtists } from "@/components/stats/new-artists";
 import { RecentPlays } from "@/components/stats/recent-plays";
 import { Heatmap } from "@/components/charts/heatmap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatListeningTime } from "@/lib/utils";
 import { Clock, Music, Users, Disc3, Flame } from "lucide-react";
-import type { ListeningStats, TopArtist, TopTrack, RecentPlay } from "@/types";
+import type { ListeningStats, TopArtist, TopTrack, RecentPlay, NewArtist } from "@/types";
 
 interface DashboardData {
   stats: ListeningStats;
@@ -37,21 +38,27 @@ interface GenresData {
   topGenres: GenreData[];
 }
 
+interface NewArtistsData {
+  newArtists: NewArtist[];
+}
+
 export default function DashboardPage() {
   const [range, setRange] = useState<"today" | "week" | "month" | "all">("week");
   const [data, setData] = useState<DashboardData | null>(null);
   const [trends, setTrends] = useState<TrendsData | null>(null);
   const [genres, setGenres] = useState<GenresData | null>(null);
+  const [newArtists, setNewArtists] = useState<NewArtistsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const [statsRes, trendsRes, genresRes] = await Promise.all([
+        const [statsRes, trendsRes, genresRes, newArtistsRes] = await Promise.all([
           fetch(`/api/stats?range=${range}`),
           fetch("/api/stats/trends?days=365"),
           fetch("/api/stats/genres"),
+          fetch("/api/stats/new-artists"),
         ]);
 
         if (statsRes.ok) {
@@ -67,6 +74,11 @@ export default function DashboardPage() {
         if (genresRes.ok) {
           const genresData = await genresRes.json();
           setGenres(genresData);
+        }
+
+        if (newArtistsRes.ok) {
+          const newArtistsData = await newArtistsRes.json();
+          setNewArtists(newArtistsData);
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -131,6 +143,11 @@ export default function DashboardPage() {
         <TopArtists artists={data?.topArtists || []} />
         <TopTracks tracks={data?.topTracks || []} />
         <TopGenres genres={genres?.topGenres || []} />
+      </div>
+
+      {/* New Artists This Month */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <NewArtists artists={newArtists?.newArtists || []} />
       </div>
 
       {/* Heatmap and Recent Plays */}
