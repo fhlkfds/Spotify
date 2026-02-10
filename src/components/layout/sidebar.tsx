@@ -12,6 +12,8 @@ import {
   Music2,
   Settings,
   Tag,
+  Sparkles,
+  GitBranch,
 } from "lucide-react";
 
 const navigation = [
@@ -19,6 +21,8 @@ const navigation = [
   { name: "Artists", href: "/dashboard/artists", icon: Users },
   { name: "Albums", href: "/dashboard/albums", icon: Disc3 },
   { name: "Genres", href: "/dashboard/genres", icon: Tag },
+  { name: "Diversity", href: "/dashboard/diversity", icon: Sparkles },
+  { name: "Genre Evolution", href: "/dashboard/genre-evolution", icon: GitBranch },
   { name: "Trends", href: "/dashboard/trends", icon: TrendingUp },
   { name: "Compare", href: "/dashboard/compare", icon: BarChart3 },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },

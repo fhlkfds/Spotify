@@ -63,7 +63,7 @@ async function getSimilarArtistsFromListeningHistory(
   }
 
   // Sort by count and take top artists
-  const topArtistIds = [...artistCounts.entries()]
+  const topArtistIds = Array.from(artistCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([id]) => id);
