@@ -3,6 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { SearchBar } from "@/components/layout/search";
 import { RefreshCw, LogOut, Share2 } from "lucide-react";
 import { useState } from "react";
 
@@ -62,6 +63,7 @@ export function Header() {
         <h1 className="text-lg font-semibold">
           Welcome back, {session?.user?.name || "User"}
         </h1>
+        <SearchBar />
       </div>
       <div className="flex items-center gap-4">
         {(syncResult || shareResult) && (

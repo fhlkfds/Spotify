@@ -24,7 +24,7 @@ export function TopTracks({ tracks }: TopTracksProps) {
               href={`/dashboard/tracks/${track.id}`}
               className="flex items-center gap-4 rounded-lg p-2 -mx-2 hover:bg-muted/50 transition-colors"
             >
-              <span className="text-lg font-bold text-muted-foreground w-6">
+              <span className="text-lg font-bold text-muted-foreground w-8 text-right">
                 {index + 1}
               </span>
               <div className="relative h-12 w-12 overflow-hidden rounded-md bg-muted">
