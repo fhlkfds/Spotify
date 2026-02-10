@@ -19,6 +19,7 @@ import {
   ListMusic,
   Flame,
   Download,
+  Ticket,
 } from "lucide-react";
 
 const navigation = [
@@ -30,6 +31,7 @@ const navigation = [
   { name: "Artists", href: "/dashboard/artists", icon: Users },
   { name: "Albums", href: "/dashboard/albums", icon: Disc3 },
   { name: "Genres", href: "/dashboard/genres", icon: Tag },
+  { name: "Concerts", href: "/dashboard/concerts", icon: Ticket },
   { name: "Diversity", href: "/dashboard/diversity", icon: Sparkles },
   { name: "Genre Evolution", href: "/dashboard/genre-evolution", icon: GitBranch },
   { name: "Trends", href: "/dashboard/trends", icon: TrendingUp },
