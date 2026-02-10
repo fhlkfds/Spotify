@@ -106,31 +106,68 @@ export class SpotifyClient {
   }
 
   /**
-   * Get track recommendations based on a seed track
-   * @param seedTrackId The track ID to base recommendations on
-   * @param limit Number of recommendations (max 100, default 10)
+   * Get similar tracks by searching for other tracks by the same artist
+   * This is a workaround since Spotify deprecated the /recommendations endpoint
+   * @param seedTrackId The track ID to base similar tracks on
+   * @param limit Number of similar tracks to return (default 10)
    */
-  async getRecommendations(
+  async getSimilarTracks(
     seedTrackId: string,
     limit: number = 10
   ): Promise<{ tracks: SpotifyTrack[] }> {
-    const params = new URLSearchParams({
-      seed_tracks: seedTrackId,
-      limit: String(limit),
-    });
-    return this.fetch<{ tracks: SpotifyTrack[] }>(`/recommendations?${params}`);
+    // First get the seed track to find the artist
+    const seedTrack = await this.getTrack(seedTrackId);
+    const artistName = seedTrack.artists[0]?.name;
+
+    if (!artistName) {
+      return { tracks: [] };
+    }
+
+    // Search for more tracks by this artist
+    const query = encodeURIComponent(`artist:${artistName}`);
+    const result = await this.fetch<{
+      tracks: { items: SpotifyTrack[] };
+    }>(`/search?q=${query}&type=track&limit=${limit + 5}`);
+
+    // Filter out the seed track and return up to limit tracks
+    const tracks = result.tracks.items
+      .filter((track) => track.id !== seedTrackId)
+      .slice(0, limit);
+
+    return { tracks };
   }
 
   /**
-   * Get related artists for a given artist
-   * @param artistId The artist ID to find related artists for
+   * Get similar artists by searching for artists in the same genres
+   * This is a workaround since Spotify deprecated the /artists/{id}/related-artists endpoint
+   * @param artistId The artist ID to find similar artists for
+   * @param limit Number of similar artists to return (default 10)
    */
-  async getRelatedArtists(
-    artistId: string
+  async getSimilarArtists(
+    artistId: string,
+    limit: number = 10
   ): Promise<{ artists: SpotifyArtist[] }> {
-    return this.fetch<{ artists: SpotifyArtist[] }>(
-      `/artists/${artistId}/related-artists`
-    );
+    // First get the artist to find their genres
+    const artist = await this.getArtist(artistId);
+    const genres = artist.genres.slice(0, 2); // Use top 2 genres
+
+    if (genres.length === 0) {
+      return { artists: [] };
+    }
+
+    // Search for artists in similar genres
+    const genreQuery = genres.map((g) => `genre:"${g}"`).join(" ");
+    const query = encodeURIComponent(genreQuery);
+    const result = await this.fetch<{
+      artists: { items: SpotifyArtist[] };
+    }>(`/search?q=${query}&type=artist&limit=${limit + 5}`);
+
+    // Filter out the original artist and return up to limit artists
+    const artists = result.artists.items
+      .filter((a) => a.id !== artistId)
+      .slice(0, limit);
+
+    return { artists };
   }
 }
 

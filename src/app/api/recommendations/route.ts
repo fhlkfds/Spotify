@@ -74,10 +74,11 @@ export async function GET(request: NextRequest) {
     const spotify = new SpotifyClient(accessToken);
 
     if (type === "track") {
-      // Get 10 recommended tracks based on the seed track
-      const recommendations = await spotify.getRecommendations(id, 10);
+      // Get similar tracks by searching for other tracks by the same artist
+      // Note: Spotify deprecated /recommendations endpoint in Nov 2024
+      const similar = await spotify.getSimilarTracks(id, 10);
 
-      const tracks: RecommendedTrack[] = recommendations.tracks.map((track) => ({
+      const tracks: RecommendedTrack[] = similar.tracks.map((track) => ({
         id: track.id,
         name: track.name,
         artistName: track.artists.map((a) => a.name).join(", "),
@@ -89,18 +90,17 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({ recommendations: tracks });
     } else {
-      // Get related artists (Spotify returns up to 20, we'll take 10)
-      const related = await spotify.getRelatedArtists(id);
+      // Get similar artists by searching for artists in the same genres
+      // Note: Spotify deprecated /artists/{id}/related-artists endpoint in Nov 2024
+      const similar = await spotify.getSimilarArtists(id, 10);
 
-      const artists: RecommendedArtist[] = related.artists
-        .slice(0, 10)
-        .map((artist) => ({
-          id: artist.id,
-          name: artist.name,
-          imageUrl: artist.images[0]?.url || null,
-          genres: artist.genres.slice(0, 3),
-          spotifyUrl: `https://open.spotify.com/artist/${artist.id}`,
-        }));
+      const artists: RecommendedArtist[] = similar.artists.map((artist) => ({
+        id: artist.id,
+        name: artist.name,
+        imageUrl: artist.images[0]?.url || null,
+        genres: artist.genres.slice(0, 3),
+        spotifyUrl: `https://open.spotify.com/artist/${artist.id}`,
+      }));
 
       return NextResponse.json({ recommendations: artists });
     }
