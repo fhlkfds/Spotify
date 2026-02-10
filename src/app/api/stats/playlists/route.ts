@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { SpotifyClient } from "@/lib/spotify";
+import { SpotifyClient, refreshAccessToken } from "@/lib/spotify";
 import type { SpotifyPlaylist, SpotifyPlaylistTrack } from "@/types";
 
 // Mood keywords for genre analysis
@@ -54,14 +54,39 @@ export async function GET() {
       where: { userId, provider: "spotify" },
     });
 
-    if (!account?.access_token) {
+    if (!account?.access_token || !account?.refresh_token) {
       return NextResponse.json(
         { error: "Spotify not connected" },
         { status: 400 }
       );
     }
 
-    const spotify = new SpotifyClient(account.access_token);
+    let accessToken = account.access_token;
+
+    // Check if token is expired and refresh if needed
+    if (account.expires_at && Date.now() >= account.expires_at * 1000) {
+      try {
+        const refreshed = await refreshAccessToken(account.refresh_token);
+        accessToken = refreshed.access_token;
+
+        // Update stored tokens
+        await prisma.account.update({
+          where: { id: account.id },
+          data: {
+            access_token: refreshed.access_token,
+            expires_at: Math.floor(Date.now() / 1000) + refreshed.expires_in,
+            refresh_token: refreshed.refresh_token || account.refresh_token,
+          },
+        });
+      } catch {
+        return NextResponse.json(
+          { error: "Failed to refresh Spotify token" },
+          { status: 401 }
+        );
+      }
+    }
+
+    const spotify = new SpotifyClient(accessToken);
 
     // Fetch all of the user's playlists (paginated)
     const playlists: SpotifyPlaylist[] = [];
