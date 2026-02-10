@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/stats/stat-card";
@@ -133,12 +132,12 @@ export default function ConcertsPage() {
           <form onSubmit={handleLocationSubmit} className="flex gap-3">
             <div className="relative flex-1 max-w-md">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+              <input
                 type="text"
                 placeholder="Enter your city (e.g., New York, NY)"
                 value={inputLocation}
                 onChange={(e) => setInputLocation(e.target.value)}
-                className="pl-10"
+                className="h-12 w-full rounded-lg bg-muted/50 border border-border pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent transition-all"
               />
             </div>
             <Button type="submit" className="bg-spotify-green hover:bg-spotify-green/90">
