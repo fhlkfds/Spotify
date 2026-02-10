@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/stats/stat-card";
 import { TopArtists } from "@/components/stats/top-artists";
 import { TopTracks } from "@/components/stats/top-tracks";
+import { TopGenres } from "@/components/stats/top-genres";
 import { RecentPlays } from "@/components/stats/recent-plays";
 import { Heatmap } from "@/components/charts/heatmap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,19 +26,32 @@ interface TrendsData {
   streak: number;
 }
 
+interface GenreData {
+  genre: string;
+  playCount: number;
+  totalMs: number;
+  artistCount: number;
+}
+
+interface GenresData {
+  topGenres: GenreData[];
+}
+
 export default function DashboardPage() {
   const [range, setRange] = useState<"today" | "week" | "month" | "all">("week");
   const [data, setData] = useState<DashboardData | null>(null);
   const [trends, setTrends] = useState<TrendsData | null>(null);
+  const [genres, setGenres] = useState<GenresData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const [statsRes, trendsRes] = await Promise.all([
+        const [statsRes, trendsRes, genresRes] = await Promise.all([
           fetch(`/api/stats?range=${range}`),
           fetch("/api/stats/trends?days=365"),
+          fetch("/api/stats/genres"),
         ]);
 
         if (statsRes.ok) {
@@ -48,6 +62,11 @@ export default function DashboardPage() {
         if (trendsRes.ok) {
           const trendsData = await trendsRes.json();
           setTrends(trendsData);
+        }
+
+        if (genresRes.ok) {
+          const genresData = await genresRes.json();
+          setGenres(genresData);
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -108,9 +127,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         <TopArtists artists={data?.topArtists || []} />
         <TopTracks tracks={data?.topTracks || []} />
+        <TopGenres genres={genres?.topGenres || []} />
       </div>
 
       {/* Heatmap and Recent Plays */}
@@ -141,7 +161,8 @@ function DashboardSkeleton() {
           <Skeleton key={i} className="h-24" />
         ))}
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Skeleton className="h-96" />
         <Skeleton className="h-96" />
         <Skeleton className="h-96" />
       </div>

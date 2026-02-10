@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -143,16 +144,20 @@ export default function GenresPage() {
         <CardContent>
           <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
             {data.topGenres.map((genre, index) => (
-              <Badge
+              <Link
                 key={genre.genre}
-                variant={index < 3 ? "default" : "secondary"}
-                className={`capitalize ${index < 3 ? "bg-spotify-green hover:bg-spotify-green/80" : ""}`}
+                href={`/dashboard/genres/${encodeURIComponent(genre.genre)}`}
               >
-                {genre.genre}
-                <span className="ml-1 text-xs opacity-70">
-                  ({genre.playCount})
-                </span>
-              </Badge>
+                <Badge
+                  variant={index < 3 ? "default" : "secondary"}
+                  className={`capitalize cursor-pointer ${index < 3 ? "bg-spotify-green hover:bg-spotify-green/80" : ""}`}
+                >
+                  {genre.genre}
+                  <span className="ml-1 text-xs opacity-70">
+                    ({genre.playCount})
+                  </span>
+                </Badge>
+              </Link>
             ))}
           </div>
         </CardContent>
@@ -177,9 +182,13 @@ export default function GenresPage() {
               </thead>
               <tbody>
                 {data.topGenres.slice(0, 20).map((genre, index) => (
-                  <tr key={genre.genre} className="border-b border-border/50 hover:bg-muted/50">
+                  <tr
+                    key={genre.genre}
+                    className="border-b border-border/50 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => window.location.href = `/dashboard/genres/${encodeURIComponent(genre.genre)}`}
+                  >
                     <td className="py-3 px-4 text-muted-foreground">#{index + 1}</td>
-                    <td className="py-3 px-4 capitalize font-medium">{genre.genre}</td>
+                    <td className="py-3 px-4 capitalize font-medium text-spotify-green hover:underline">{genre.genre}</td>
                     <td className="py-3 px-4 text-right">{formatListeningTime(genre.totalMs)}</td>
                     <td className="py-3 px-4 text-right text-muted-foreground">{genre.playCount}</td>
                     <td className="py-3 px-4 text-right text-muted-foreground">{genre.artistCount}</td>
