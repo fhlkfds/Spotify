@@ -3,13 +3,15 @@
 import { useSession, signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, LogOut } from "lucide-react";
+import { RefreshCw, LogOut, Share2 } from "lucide-react";
 import { useState } from "react";
 
 export function Header() {
   const { data: session } = useSession();
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareResult, setShareResult] = useState<string | null>(null);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -34,6 +36,26 @@ export function Header() {
     }
   };
 
+  const handleShare = async () => {
+    setSharing(true);
+    setShareResult(null);
+    try {
+      const res = await fetch("/api/share", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        await navigator.clipboard.writeText(data.shareUrl);
+        setShareResult("Link copied!");
+      } else {
+        setShareResult("Failed to create link");
+      }
+    } catch {
+      setShareResult("Failed to create link");
+    } finally {
+      setSharing(false);
+      setTimeout(() => setShareResult(null), 3000);
+    }
+  };
+
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-6">
       <div className="flex items-center gap-4">
@@ -42,9 +64,20 @@ export function Header() {
         </h1>
       </div>
       <div className="flex items-center gap-4">
-        {syncResult && (
-          <span className="text-sm text-muted-foreground">{syncResult}</span>
+        {(syncResult || shareResult) && (
+          <span className="text-sm text-muted-foreground">
+            {syncResult || shareResult}
+          </span>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleShare}
+          disabled={sharing}
+        >
+          <Share2 className="h-4 w-4 mr-2" />
+          {sharing ? "Creating..." : "Share"}
+        </Button>
         <Button
           variant="outline"
           size="sm"

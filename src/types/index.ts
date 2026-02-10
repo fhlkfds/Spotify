@@ -149,3 +149,22 @@ export interface ImportProgress {
   failed: number;
   skipped: number;
 }
+
+export interface ShareLink {
+  id: string;
+  userId: string;
+  createdAt: Date;
+  expiresAt: Date | null;
+  viewCount: number;
+}
+
+export interface SharedStats {
+  userName: string;
+  userImage: string | null;
+  stats: ListeningStats;
+  topArtists: TopArtist[];
+  topTracks: TopTrack[];
+  recentPlays: RecentPlay[];
+  viewCount: number;
+  createdAt: Date;
+}
