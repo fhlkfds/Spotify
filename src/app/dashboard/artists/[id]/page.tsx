@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, Clock, Play, Calendar, Disc, Music } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Clock, Play, Calendar, Disc, Music, User, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   formatDate,
   formatTrackDuration,
 } from "@/lib/utils";
+import type { RecommendedArtist } from "@/types";
 
 interface ArtistData {
   artist: {
@@ -65,6 +67,9 @@ export default function ArtistDetailPage() {
   const [data, setData] = useState<ArtistData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [relatedArtists, setRelatedArtists] = useState<RecommendedArtist[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(true);
+  const [relatedError, setRelatedError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchArtistData() {
@@ -85,6 +90,31 @@ export default function ArtistDetailPage() {
     if (params.id) {
       fetchArtistData();
     }
+  }, [params.id]);
+
+  useEffect(() => {
+    async function fetchRelatedArtists() {
+      if (!params.id) return;
+
+      setRelatedLoading(true);
+      setRelatedError(null);
+
+      try {
+        const res = await fetch(`/api/recommendations?type=artist&id=${params.id}`);
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to fetch related artists");
+        }
+        const recData = await res.json();
+        setRelatedArtists(recData.recommendations || []);
+      } catch (err) {
+        setRelatedError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setRelatedLoading(false);
+      }
+    }
+
+    fetchRelatedArtists();
   }, [params.id]);
 
   if (loading) {
@@ -279,6 +309,78 @@ export default function ArtistDetailPage() {
         </Card>
       )}
 
+      {/* Similar Artists */}
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5 text-spotify-green" />
+            Similar Artists
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {relatedLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-16 w-16 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : relatedError ? (
+            <p className="text-muted-foreground text-center py-4">{relatedError}</p>
+          ) : relatedArtists.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">
+              No similar artists found.
+            </p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {relatedArtists.map((relatedArtist, index) => (
+                <a
+                  key={relatedArtist.id}
+                  href={relatedArtist.spotifyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group"
+                >
+                  <div className="relative h-16 w-16 overflow-hidden rounded-full shadow-md flex-shrink-0">
+                    {relatedArtist.imageUrl ? (
+                      <Image
+                        src={relatedArtist.imageUrl}
+                        alt={relatedArtist.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-muted">
+                        <User className="h-6 w-6" />
+                      </div>
+                    )}
+                    <div className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-spotify-green text-background text-xs font-bold flex items-center justify-center">
+                      {index + 1}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate group-hover:text-spotify-green transition-colors">
+                      {relatedArtist.name}
+                    </p>
+                    {relatedArtist.genres.length > 0 && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {relatedArtist.genres.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                </a>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* All Songs */}
       <Card className="glass">
         <CardHeader>
@@ -301,8 +403,9 @@ export default function ArtistDetailPage() {
 
             {/* Track rows */}
             {allTracks.map((track, index) => (
-              <div
+              <Link
                 key={track.id}
+                href={`/dashboard/tracks/${track.id}`}
                 className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-4 py-3 rounded-lg hover:bg-muted/50 transition-colors"
               >
                 {/* Rank */}
@@ -327,7 +430,7 @@ export default function ArtistDetailPage() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{track.name}</p>
+                    <p className="font-medium truncate hover:text-spotify-green transition-colors">{track.name}</p>
                     <p className="text-sm text-muted-foreground md:hidden truncate">
                       {track.albumName}
                     </p>
@@ -366,7 +469,7 @@ export default function ArtistDetailPage() {
                   <span>First: {formatDate(new Date(track.firstListen))}</span>
                   <span>Last: {formatDate(new Date(track.lastListen))}</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </CardContent>
