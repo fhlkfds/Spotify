@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  spotifyId     String?   @unique
+  email         String?   @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  plays         Play[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Artist {
+  id       String  @id
+  name     String
+  imageUrl String?
+  genres   String? // JSON array stored as string
+  plays    Play[]
+  tracks   Track[]
+  albums   Album[]
+}
+
+model Album {
+  id       String  @id
+  name     String
+  imageUrl String?
+  artistId String
+  artist   Artist  @relation(fields: [artistId], references: [id])
+  tracks   Track[]
+  plays    Play[]
+}
+
+model Track {
+  id         String @id
+  name       String
+  durationMs Int
+  albumId    String
+  artistId   String
+  album      Album  @relation(fields: [albumId], references: [id])
+  artist     Artist @relation(fields: [artistId], references: [id])
+  plays      Play[]
+}
+
+model Play {
+  id       String   @id @default(cuid())
+  userId   String
+  trackId  String
+  artistId String
+  albumId  String
+  playedAt DateTime
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track    Track    @relation(fields: [trackId], references: [id])
+  artist   Artist   @relation(fields: [artistId], references: [id])
+  album    Album    @relation(fields: [albumId], references: [id])
+
+  @@unique([userId, trackId, playedAt])
+  @@index([userId, playedAt])
+  @@index([artistId])
+  @@index([albumId])
+}
+
+model GlobalStats {
+  id              String   @id @default("global")
+  totalUsers      Int      @default(0)
+  avgHoursPerWeek Float    @default(0)
+  topGenres       String? // JSON
+  updatedAt       DateTime @updatedAt
+}
