@@ -101,6 +101,9 @@ export async function GET() {
       );
       playlists.push(...playlistsResponse.items);
       totalPlaylists = playlistsResponse.total;
+      if (playlistsResponse.items.length === 0) {
+        break;
+      }
       playlistOffset += playlistsResponse.items.length;
     } while (playlists.length < totalPlaylists);
 
@@ -142,6 +145,9 @@ export async function GET() {
         );
         allTracks.push(...tracksResponse.items);
         totalTracks = tracksResponse.total;
+        if (tracksResponse.items.length === 0) {
+          break;
+        }
         trackOffset += tracksResponse.items.length;
       } while (allTracks.length < totalTracks);
 
