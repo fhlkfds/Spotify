@@ -16,12 +16,16 @@ import {
   GitBranch,
   Gift,
   Brain,
+  ListMusic,
+  Flame,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Wrapped", href: "/dashboard/wrapped", icon: Gift },
   { name: "Insights", href: "/dashboard/insights", icon: Brain },
+  { name: "Obsessed", href: "/dashboard/obsessed", icon: Flame },
+  { name: "Playlists", href: "/dashboard/playlists", icon: ListMusic },
   { name: "Artists", href: "/dashboard/artists", icon: Users },
   { name: "Albums", href: "/dashboard/albums", icon: Disc3 },
   { name: "Genres", href: "/dashboard/genres", icon: Tag },

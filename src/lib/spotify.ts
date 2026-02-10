@@ -1,4 +1,4 @@
-import type { SpotifyRecentlyPlayed, SpotifyArtist, SpotifyTrack } from "@/types";
+import type { SpotifyRecentlyPlayed, SpotifyArtist, SpotifyTrack, SpotifyPlaylist, SpotifyPlaylistTrack } from "@/types";
 
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 
@@ -168,6 +168,38 @@ export class SpotifyClient {
       .slice(0, limit);
 
     return { artists };
+  }
+
+  /**
+   * Get current user's playlists
+   */
+  async getUserPlaylists(
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<{ items: SpotifyPlaylist[]; total: number }> {
+    return this.fetch<{ items: SpotifyPlaylist[]; total: number }>(
+      `/me/playlists?limit=${limit}&offset=${offset}`
+    );
+  }
+
+  /**
+   * Get a playlist's tracks
+   */
+  async getPlaylistTracks(
+    playlistId: string,
+    limit: number = 100,
+    offset: number = 0
+  ): Promise<{ items: SpotifyPlaylistTrack[]; total: number }> {
+    return this.fetch<{ items: SpotifyPlaylistTrack[]; total: number }>(
+      `/playlists/${playlistId}/tracks?limit=${limit}&offset=${offset}&fields=items(added_at,track(id,name,duration_ms,album(id,name,images,release_date),artists(id,name))),total`
+    );
+  }
+
+  /**
+   * Get a playlist by ID
+   */
+  async getPlaylist(playlistId: string): Promise<SpotifyPlaylist> {
+    return this.fetch<SpotifyPlaylist>(`/playlists/${playlistId}`);
   }
 }
 

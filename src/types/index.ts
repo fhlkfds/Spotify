@@ -196,3 +196,46 @@ export interface RecommendedArtist {
   genres: string[];
   spotifyUrl: string;
 }
+
+// Playlist types
+export interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  description: string | null;
+  images: { url: string; height: number | null; width: number | null }[];
+  owner: {
+    id: string;
+    display_name: string;
+  };
+  tracks: {
+    total: number;
+    href: string;
+  };
+  public: boolean;
+  collaborative: boolean;
+}
+
+export interface SpotifyPlaylistTrack {
+  added_at: string;
+  track: SpotifyTrack | null;
+}
+
+export interface PlaylistAnalysis {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  description: string | null;
+  totalTracks: number;
+  totalDurationMs: number;
+  owner: string;
+  genres: { genre: string; count: number; percentage: number }[];
+  mood: {
+    primary: string;
+    secondary: string | null;
+    score: number;
+  };
+  artists: { id: string; name: string; count: number }[];
+  decades: { decade: string; count: number }[];
+  completionRate: number; // How much of the playlist you've actually played
+  tracksPlayed: number;
+}
