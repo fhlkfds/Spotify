@@ -63,7 +63,7 @@ export async function syncUserPlays(userId: string): Promise<SyncResult> {
     const recentlyPlayed = await spotify.getRecentlyPlayed(50);
 
     // Process and store plays
-    const newPlays = await processRecentlyPlayed(userId, recentlyPlayed);
+    const newPlays = await processRecentlyPlayed(userId, recentlyPlayed, spotify);
 
     return { success: true, newPlays };
   } catch (error) {
@@ -77,19 +77,53 @@ export async function syncUserPlays(userId: string): Promise<SyncResult> {
 }
 
 /**
+ * Fetch artist details and update artists with images and genres
+ */
+async function fetchAndUpdateArtistDetails(
+  spotify: SpotifyClient,
+  artistIds: string[]
+): Promise<void> {
+  // Process in batches of 50 (Spotify API limit)
+  for (let i = 0; i < artistIds.length; i += 50) {
+    const batch = artistIds.slice(i, i + 50);
+    try {
+      const { artists } = await spotify.getArtists(batch);
+      for (const artist of artists) {
+        if (artist) {
+          await prisma.artist.update({
+            where: { id: artist.id },
+            data: {
+              imageUrl: artist.images?.[0]?.url || null,
+              genres: artist.genres?.length ? JSON.stringify(artist.genres) : null,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching artist details:", error);
+    }
+  }
+}
+
+/**
  * Process recently played tracks and store in database
  */
 async function processRecentlyPlayed(
   userId: string,
-  data: SpotifyRecentlyPlayed
+  data: SpotifyRecentlyPlayed,
+  spotify: SpotifyClient
 ): Promise<number> {
   let newPlaysCount = 0;
+  const artistIds = new Set<string>();
 
   for (const item of data.items) {
     const { track, played_at } = item;
     const playedAt = new Date(played_at);
     const primaryArtist = track.artists[0];
     const album = track.album;
+
+    // Collect artist IDs for batch fetching details
+    artistIds.add(primaryArtist.id);
 
     // Upsert artist
     await prisma.artist.upsert({
@@ -148,6 +182,9 @@ async function processRecentlyPlayed(
       // Duplicate play, skip
     }
   }
+
+  // Fetch and update artist details (images and genres)
+  await fetchAndUpdateArtistDetails(spotify, Array.from(artistIds));
 
   return newPlaysCount;
 }

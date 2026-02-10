@@ -11,12 +11,14 @@ import {
   BarChart3,
   Music2,
   Settings,
+  Tag,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Artists", href: "/dashboard/artists", icon: Users },
   { name: "Albums", href: "/dashboard/albums", icon: Disc3 },
+  { name: "Genres", href: "/dashboard/genres", icon: Tag },
   { name: "Trends", href: "/dashboard/trends", icon: TrendingUp },
   { name: "Compare", href: "/dashboard/compare", icon: BarChart3 },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
