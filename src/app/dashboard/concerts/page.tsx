@@ -230,7 +230,7 @@ export default function ConcertsPage() {
             <StatCard
               title="Upcoming Concerts"
               value={data.totalConcerts.toString()}
-              description="In the next 90 days"
+              description="In the next 6 months"
               icon={Ticket}
             />
             <StatCard

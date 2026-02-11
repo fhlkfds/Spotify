@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
     const { city, stateCode } = parseLocation(location);
     const startDateTime = new Date();
     const endDateTime = new Date();
-    endDateTime.setDate(endDateTime.getDate() + 90);
+    endDateTime.setDate(endDateTime.getDate() + 180);
 
     const concertsById = new Map<string, Concert>();
     const artistSearches = topArtists.slice(0, 8);
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
           url.searchParams.set("classificationName", "music");
           url.searchParams.set("radius", normalizedRadiusMiles.toString());
           url.searchParams.set("unit", "miles");
-          url.searchParams.set("size", "6");
+          url.searchParams.set("size", "20");
           url.searchParams.set("sort", "date,asc");
           url.searchParams.set("startDateTime", startDateTime.toISOString());
           url.searchParams.set("endDateTime", endDateTime.toISOString());
