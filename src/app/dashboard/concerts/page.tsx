@@ -163,7 +163,7 @@ export default function ConcertsPage() {
       <div>
         <h1 className="text-3xl font-bold">Concert Recommendations</h1>
         <p className="text-muted-foreground mt-1">
-          Upcoming shows for your top artists, powered by ticketing partners and your location.
+          Upcoming shows for the artists you search, powered by ticketing partners and your location.
         </p>
       </div>
 
@@ -175,10 +175,8 @@ export default function ConcertsPage() {
                 <Music className="h-5 w-5" />
               </div>
               <div>
-                <p className="font-semibold">Top artist match</p>
-                <p className="text-sm text-muted-foreground">
-                  Upcoming concerts for the artists you play most.
-                </p>
+                <p className="font-semibold">Artist match</p>
+                <p className="text-sm text-muted-foreground">Upcoming concerts for the artists you search.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -286,7 +284,7 @@ export default function ConcertsPage() {
             <div className="text-center">
               <Ticket className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground">
-                No upcoming concerts found for your top artists in this area.
+                No upcoming concerts found for these artists in this area.
               </p>
               <p className="text-sm text-muted-foreground mt-2">
                 Try a different location or check back later!
