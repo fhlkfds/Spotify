@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const artistQuery = searchParams.get("artist")?.trim() || "";
     const countryCode = searchParams.get("countryCode")?.trim().toUpperCase() || "";
-    const location = searchParams.get("location") || (countryCode ? "" : "New York, NY");
+    const location = searchParams.get("location") || (countryCode ? "" : "New Orleans, LA");
     const radiusMiles = Number(searchParams.get("radiusMiles") || "100");
     const apiKey = process.env.TICKETMASTER_API_KEY;
 

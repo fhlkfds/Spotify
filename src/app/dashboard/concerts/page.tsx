@@ -58,8 +58,8 @@ export default function ConcertsPage() {
       setLocation(savedLocation);
       setInputLocation(savedLocation);
     } else {
-      setLocation("New York, NY");
-      setInputLocation("New York, NY");
+      setLocation("New Orleans, LA");
+      setInputLocation("New Orleans, LA");
     }
   }, []);
 
