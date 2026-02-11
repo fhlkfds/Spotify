@@ -24,7 +24,8 @@ A modern, self-hosted Spotify listening statistics tracker with beautiful visual
 
 1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Create a new app
-3. Add `http://localhost:3000/api/auth/callback/spotify` as a Redirect URI
+3. Add your exact callback URI as a Redirect URI:
+   `https://your-domain-or-host/api/auth/callback/spotify`
 4. Note your Client ID and Client Secret
 
 ### 2. Configure Environment
@@ -44,6 +45,9 @@ NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
 SPOTIFY_CLIENT_ID="your-spotify-client-id"
 SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
 ```
+
+`NEXTAUTH_URL` must match where you open the app in the browser.  
+Spotify Redirect URI must be `${NEXTAUTH_URL}/api/auth/callback/spotify`.
 
 Generate a secret with:
 ```bash
