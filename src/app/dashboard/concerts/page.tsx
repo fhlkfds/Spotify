@@ -125,9 +125,49 @@ export default function ConcertsPage() {
       <div>
         <h1 className="text-3xl font-bold">Concert Recommendations</h1>
         <p className="text-muted-foreground mt-1">
-          Upcoming concerts from artists you listen to
+          Upcoming shows for your top artists, powered by ticketing partners and your location.
         </p>
       </div>
+
+      <Card className="glass">
+        <CardContent className="pt-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-spotify-green/10 p-2 text-spotify-green">
+                <Music className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold">Top artist match</p>
+                <p className="text-sm text-muted-foreground">
+                  Upcoming concerts for the artists you play most.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-spotify-green/10 p-2 text-spotify-green">
+                <Ticket className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold">Ticketing integration</p>
+                <p className="text-sm text-muted-foreground">
+                  Jump straight to verified listings from ticketing services.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-spotify-green/10 p-2 text-spotify-green">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold">Location-based discovery</p>
+                <p className="text-sm text-muted-foreground">
+                  Find shows within your chosen radius and city.
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Location Input */}
       <Card className="glass">

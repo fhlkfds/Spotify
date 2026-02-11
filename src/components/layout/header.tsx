@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useState } from "react";
+import { AutoSyncStatus } from "@/components/auto-sync";
 
 export function Header() {
   const { data: session } = useSession();
@@ -39,6 +40,13 @@ export function Header() {
       const res = await fetch("/api/sync", { method: "POST" });
       const data = await res.json();
       if (data.success) {
+        const now = new Date();
+        localStorage.setItem("lastAutoSync", now.toISOString());
+        window.dispatchEvent(
+          new CustomEvent("spotify-sync-complete", {
+            detail: { newPlays: data.newPlays || 0 },
+          })
+        );
         setSyncResult(`Synced ${data.newPlays} new plays`);
         // Refresh the page to show new data
         if (data.newPlays > 0) {
@@ -126,6 +134,7 @@ export function Header() {
             {syncResult || shareResult}
           </span>
         )}
+        <AutoSyncStatus />
         <Button
           variant="outline"
           size="sm"
