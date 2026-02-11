@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -19,7 +20,8 @@ import {
   ListMusic,
   Flame,
   Download,
-  Ticket,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 export const navigation = [
@@ -27,7 +29,6 @@ export const navigation = [
   { name: "Insights", href: "/dashboard/insights", icon: Brain },
   { name: "Obsessed", href: "/dashboard/obsessed", icon: Flame },
   { name: "Playlists", href: "/dashboard/playlists", icon: ListMusic },
-  { name: "Concerts", href: "/dashboard/concerts", icon: Ticket },
   { name: "Compare", href: "/dashboard/compare", icon: BarChart3 },
 ];
 
@@ -62,6 +63,15 @@ export const settingsGroup = {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    Content: true,
+    Analytics: true,
+    Settings: true,
+  });
+
+  const toggleSection = (label: string) => {
+    setOpenSections((prev) => ({ ...prev, [label]: !prev[label] }));
+  };
 
   return (
     <div className="flex h-full w-64 flex-col bg-card border-r">
@@ -93,11 +103,61 @@ export function Sidebar() {
         {/* Content Groups */}
         {contentGroups.map((group) => (
           <div key={group.label} className="mt-6">
-            <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {group.label}
-            </h3>
-            <div className="space-y-1">
-              {group.items.map((item) => {
+            <button
+              onClick={() => toggleSection(group.label)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+            >
+              <span>{group.label}</span>
+              {openSections[group.label] ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </button>
+            {openSections[group.label] && (
+              <div className="space-y-1 mt-2">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-spotify-green/10 text-spotify-green"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Settings Group */}
+        <div className="mt-6 border-t pt-4">
+          <button
+            onClick={() => toggleSection("Settings")}
+            className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <div className="flex items-center gap-3">
+              <settingsGroup.icon className="h-5 w-5" />
+              <span>{settingsGroup.name}</span>
+            </div>
+            {openSections["Settings"] ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </button>
+          {openSections["Settings"] && (
+            <div className="mt-1 ml-6 space-y-1">
+              {settingsGroup.items.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
@@ -110,49 +170,13 @@ export function Sidebar() {
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
-                    <item.icon className="h-5 w-5" />
+                    <item.icon className="h-4 w-4" />
                     {item.name}
                   </Link>
                 );
               })}
             </div>
-          </div>
-        ))}
-
-        {/* Settings Group */}
-        <div className="mt-6 border-t pt-4">
-          <Link
-            href={settingsGroup.href}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              pathname === settingsGroup.href
-                ? "bg-spotify-green/10 text-spotify-green"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <settingsGroup.icon className="h-5 w-5" />
-            {settingsGroup.name}
-          </Link>
-          <div className="mt-1 ml-6 space-y-1">
-            {settingsGroup.items.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-spotify-green/10 text-spotify-green"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.name}
-                </Link>
-              );
-            })}
-          </div>
+          )}
         </div>
       </nav>
     </div>
