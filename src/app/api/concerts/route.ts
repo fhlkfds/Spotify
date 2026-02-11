@@ -62,9 +62,10 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
-    const location = searchParams.get("location") || "New York, NY";
+    const artistQuery = searchParams.get("artist")?.trim() || "";
+    const countryCode = searchParams.get("countryCode")?.trim().toUpperCase() || "";
+    const location = searchParams.get("location") || (countryCode ? "" : "New York, NY");
     const radiusMiles = Number(searchParams.get("radiusMiles") || "100");
-    const normalizedRadiusMiles = Number.isFinite(radiusMiles) && radiusMiles > 0 ? radiusMiles : 100;
     const apiKey = process.env.TICKETMASTER_API_KEY;
 
     if (!apiKey) {
@@ -74,45 +75,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user's top artists
-    const plays = await prisma.play.findMany({
-      where: { userId },
-      include: { artist: true },
-    });
+    let artistSearches: Array<{ id: string; name: string; imageUrl: string | null }> = [];
 
-    // Calculate top artists by play count
-    const artistStats: Record<string, { id: string; name: string; imageUrl: string | null; playCount: number }> = {};
-
-    for (const play of plays) {
-      if (!artistStats[play.artistId]) {
-        artistStats[play.artistId] = {
-          id: play.artistId,
-          name: play.artist.name,
-          imageUrl: play.artist.imageUrl,
-          playCount: 0,
-        };
-      }
-      artistStats[play.artistId].playCount++;
-    }
-
-    const topArtists = Object.values(artistStats)
-      .sort((a, b) => b.playCount - a.playCount)
-      .slice(0, 20);
-
-    if (topArtists.length === 0) {
-      return NextResponse.json({
-        concerts: [],
-        message: "No listening history found. Sync your data to get concert recommendations.",
+    if (artistQuery) {
+      artistSearches = [{ id: "manual", name: artistQuery, imageUrl: null }];
+    } else {
+      // Get user's top artists
+      const plays = await prisma.play.findMany({
+        where: { userId },
+        include: { artist: true },
       });
+
+      // Calculate top artists by play count
+      const artistStats: Record<string, { id: string; name: string; imageUrl: string | null; playCount: number }> = {};
+
+      for (const play of plays) {
+        if (!artistStats[play.artistId]) {
+          artistStats[play.artistId] = {
+            id: play.artistId,
+            name: play.artist.name,
+            imageUrl: play.artist.imageUrl,
+            playCount: 0,
+          };
+        }
+        artistStats[play.artistId].playCount++;
+      }
+
+      const topArtists = Object.values(artistStats)
+        .sort((a, b) => b.playCount - a.playCount)
+        .slice(0, 20);
+
+      if (topArtists.length === 0) {
+        return NextResponse.json({
+          concerts: [],
+          message: "No listening history found. Sync your data to get concert recommendations.",
+        });
+      }
+
+      artistSearches = topArtists.slice(0, 8);
     }
 
     const { city, stateCode } = parseLocation(location);
+    const hasGeoFilter = Boolean(city || stateCode);
+    const normalizedRadiusMiles = hasGeoFilter && Number.isFinite(radiusMiles) && radiusMiles > 0 ? radiusMiles : 0;
     const startDateTime = new Date();
     const endDateTime = new Date();
     endDateTime.setDate(endDateTime.getDate() + 180);
 
     const concertsById = new Map<string, Concert>();
-    const artistSearches = topArtists.slice(0, 8);
 
     await Promise.allSettled(
       artistSearches.map(async (artist) => {
@@ -121,13 +131,18 @@ export async function GET(request: NextRequest) {
           url.searchParams.set("apikey", apiKey);
           url.searchParams.set("keyword", artist.name);
           url.searchParams.set("classificationName", "music");
-          url.searchParams.set("radius", normalizedRadiusMiles.toString());
-          url.searchParams.set("unit", "miles");
           url.searchParams.set("size", "20");
           url.searchParams.set("sort", "date,asc");
           url.searchParams.set("startDateTime", startDateTime.toISOString());
           url.searchParams.set("endDateTime", endDateTime.toISOString());
           url.searchParams.set("locale", "*");
+          if (countryCode) {
+            url.searchParams.set("countryCode", countryCode);
+          }
+          if (hasGeoFilter && normalizedRadiusMiles > 0) {
+            url.searchParams.set("radius", normalizedRadiusMiles.toString());
+            url.searchParams.set("unit", "miles");
+          }
           if (city) {
             url.searchParams.set("city", city);
           }
@@ -178,6 +193,9 @@ export async function GET(request: NextRequest) {
     );
 
     const filteredConcerts = Array.from(concertsById.values()).filter(concert => {
+      if (!hasGeoFilter || normalizedRadiusMiles <= 0) {
+        return true;
+      }
       if (concert.distance == null) {
         return true;
       }
@@ -197,8 +215,10 @@ export async function GET(request: NextRequest) {
       concertsByMonth[month].push(concert);
     }
 
+    const locationLabel = location || (countryCode ? (countryCode === "US" ? "United States" : countryCode) : "");
+
     return NextResponse.json({
-      location,
+      location: locationLabel,
       radiusMiles: normalizedRadiusMiles,
       concerts: filteredConcerts,
       concertsByMonth,

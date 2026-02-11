@@ -47,6 +47,9 @@ export default function ConcertsPage() {
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState("");
   const [inputLocation, setInputLocation] = useState("");
+  const [artistQuery, setArtistQuery] = useState("");
+  const [inputArtist, setInputArtist] = useState("");
+  const [searchUSA, setSearchUSA] = useState(true);
 
   // Load location from localStorage on mount
   useEffect(() => {
@@ -62,17 +65,39 @@ export default function ConcertsPage() {
 
   // Fetch concerts when location changes
   useEffect(() => {
-    if (!location) return;
+    if (!location && !artistQuery) return;
 
     async function fetchConcerts() {
       try {
         setLoading(true);
-        const res = await fetch(
-          `/api/concerts?location=${encodeURIComponent(location)}&radiusMiles=100`
-        );
+        const params = new URLSearchParams();
+        const useGeoFilter = Boolean(location) && (!artistQuery || !searchUSA);
+
+        if (useGeoFilter) {
+          params.set("location", location);
+          params.set("radiusMiles", "100");
+        }
+        if (artistQuery) {
+          params.set("artist", artistQuery);
+          if (searchUSA) {
+            params.set("countryCode", "US");
+          }
+        }
+
+        const res = await fetch(`/api/concerts?${params.toString()}`);
+        const payload = await res.json();
         if (res.ok) {
-          const concertsData = await res.json();
-          setData(concertsData);
+          setData(payload);
+        } else {
+          setData({
+            location: useGeoFilter ? location : "United States",
+            radiusMiles: useGeoFilter ? 100 : 0,
+            concerts: [],
+            concertsByMonth: {},
+            totalConcerts: 0,
+            artistsWithConcerts: 0,
+            message: payload?.error || "Failed to fetch concert data.",
+          });
         }
       } catch (error) {
         console.error("Failed to fetch concerts:", error);
@@ -82,13 +107,22 @@ export default function ConcertsPage() {
     }
 
     fetchConcerts();
-  }, [location]);
+  }, [location, artistQuery, searchUSA]);
 
   const handleLocationSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputLocation.trim()) {
-      localStorage.setItem("userLocation", inputLocation.trim());
-      setLocation(inputLocation.trim());
+    const nextLocation = inputLocation.trim();
+    const nextArtist = inputArtist.trim();
+    const shouldSearchUSA = searchUSA || (nextArtist && !nextLocation);
+
+    setSearchUSA(shouldSearchUSA);
+    setArtistQuery(nextArtist);
+    setLocation(nextLocation);
+
+    if (nextLocation) {
+      localStorage.setItem("userLocation", nextLocation);
+    } else {
+      localStorage.removeItem("userLocation");
     }
   };
 
@@ -172,23 +206,51 @@ export default function ConcertsPage() {
       {/* Location Input */}
       <Card className="glass">
         <CardContent className="pt-6">
-          <form onSubmit={handleLocationSubmit} className="flex gap-3">
-            <div className="relative flex-1 max-w-md">
+          <form onSubmit={handleLocationSubmit} className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[220px]">
+              <Music className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search an artist or band"
+                value={inputArtist}
+                onChange={(e) => setInputArtist(e.target.value)}
+                className="h-12 w-full rounded-lg bg-muted/50 border border-border pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent transition-all"
+              />
+            </div>
+            <div className="relative flex-1 min-w-[220px]">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Enter your city (e.g., New York, NY)"
                 value={inputLocation}
                 onChange={(e) => setInputLocation(e.target.value)}
-                className="h-12 w-full rounded-lg bg-muted/50 border border-border pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent transition-all"
+                disabled={Boolean(inputArtist.trim()) && searchUSA}
+                className="h-12 w-full rounded-lg bg-muted/50 border border-border pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent transition-all disabled:opacity-60"
               />
             </div>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={searchUSA}
+                onChange={(e) => setSearchUSA(e.target.checked)}
+                className="h-4 w-4 rounded border border-border text-spotify-green focus:ring-spotify-green"
+              />
+              Search across the U.S.
+            </label>
             <Button type="submit" className="bg-spotify-green hover:bg-spotify-green/90">
               <Search className="h-4 w-4 mr-2" />
               Find Concerts
             </Button>
           </form>
-          {location && (
+          {artistQuery && searchUSA ? (
+            <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+              <Music className="h-4 w-4" />
+              <span>
+                Searching across the U.S. for:{" "}
+                <strong className="text-foreground">{artistQuery}</strong>
+              </span>
+            </div>
+          ) : location ? (
             <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
               <Navigation className="h-4 w-4" />
               <span>
@@ -196,7 +258,7 @@ export default function ConcertsPage() {
                 <strong className="text-foreground">{location}</strong>
               </span>
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
@@ -242,7 +304,7 @@ export default function ConcertsPage() {
             <StatCard
               title="Location"
               value={data.location}
-              description={`${data.radiusMiles} miles`}
+              description={data.radiusMiles > 0 ? `${data.radiusMiles} miles` : "Nationwide"}
               icon={MapPin}
             />
           </div>
