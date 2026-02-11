@@ -166,20 +166,33 @@ async function processRecentlyPlayed(
       },
     });
 
-    // Try to create play (will fail if duplicate due to unique constraint)
-    try {
-      await prisma.play.create({
-        data: {
+    // Idempotent insert: skip duplicates cleanly and keep accurate new-play count
+    const existingPlay = await prisma.play.findUnique({
+      where: {
+        userId_trackId_playedAt: {
           userId,
           trackId: track.id,
-          artistId: primaryArtist.id,
-          albumId: album.id,
           playedAt,
         },
-      });
-      newPlaysCount++;
-    } catch {
-      // Duplicate play, skip
+      },
+      select: { id: true },
+    });
+
+    if (!existingPlay) {
+      try {
+        await prisma.play.create({
+          data: {
+            userId,
+            trackId: track.id,
+            artistId: primaryArtist.id,
+            albumId: album.id,
+            playedAt,
+          },
+        });
+        newPlaysCount++;
+      } catch {
+        // Another sync may have inserted the same play concurrently.
+      }
     }
   }
 
