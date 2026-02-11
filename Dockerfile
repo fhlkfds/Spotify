@@ -22,6 +22,9 @@ RUN npx prisma generate
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Ensure public exists for copy into runner image
+RUN mkdir -p /app/public
+
 RUN npm run build
 
 # Production image, copy all the files and run next
