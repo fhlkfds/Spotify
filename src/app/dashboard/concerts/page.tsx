@@ -105,6 +105,15 @@ export default function ConcertsPage() {
         }
       } catch (error) {
         console.error("Failed to fetch concerts:", error);
+        setData({
+          location: searchUSA ? "United States" : location,
+          radiusMiles: searchUSA ? 0 : 100,
+          concerts: [],
+          concertsByMonth: {},
+          totalConcerts: 0,
+          artistsWithConcerts: 0,
+          message: "Failed to fetch concert data. Check your API key and try again.",
+        });
       } finally {
         setLoading(false);
       }
