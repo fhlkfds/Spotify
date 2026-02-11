@@ -65,13 +65,17 @@ export default function ConcertsPage() {
 
   // Fetch concerts when location changes
   useEffect(() => {
-    if (!location && !artistQuery) return;
+    if (!artistQuery) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
 
     async function fetchConcerts() {
       try {
         setLoading(true);
         const params = new URLSearchParams();
-        const useGeoFilter = Boolean(location) && (!artistQuery || !searchUSA);
+        const useGeoFilter = Boolean(location) && !searchUSA;
 
         if (useGeoFilter) {
           params.set("location", location);
@@ -249,6 +253,11 @@ export default function ConcertsPage() {
                 Searching across the U.S. for:{" "}
                 <strong className="text-foreground">{artistQuery}</strong>
               </span>
+            </div>
+          ) : !artistQuery ? (
+            <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+              <Music className="h-4 w-4" />
+              <span>Enter one or more artists to see concerts.</span>
             </div>
           ) : location ? (
             <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">

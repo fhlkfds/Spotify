@@ -78,7 +78,16 @@ export async function GET(request: NextRequest) {
     let artistSearches: Array<{ id: string; name: string; imageUrl: string | null }> = [];
 
     if (artistQuery) {
-      artistSearches = [{ id: "manual", name: artistQuery, imageUrl: null }];
+      const names = artistQuery
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .slice(0, 8);
+      artistSearches = names.map((name, index) => ({
+        id: `manual-${index}`,
+        name,
+        imageUrl: null,
+      }));
     } else {
       // Get user's top artists
       const plays = await prisma.play.findMany({
