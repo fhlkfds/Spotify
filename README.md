@@ -85,10 +85,13 @@ SPOTIFY_CLIENT_SECRET=your-client-secret
 2. Build and run:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 The app will be available at `http://localhost:3000`.
+
+On first start the container will run `prisma db push` automatically. Set
+`PRISMA_MIGRATE_ON_START=0` if you want to disable that behavior.
 
 ### Manual Docker Build
 
