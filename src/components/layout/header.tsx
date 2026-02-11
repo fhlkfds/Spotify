@@ -1,15 +1,32 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/layout/search";
-import { RefreshCw, LogOut, Share2, Download } from "lucide-react";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { navigation } from "@/components/layout/sidebar";
+import { cn } from "@/lib/utils";
+import {
+  RefreshCw,
+  LogOut,
+  Share2,
+  Menu,
+  Music2,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useState } from "react";
 
 export function Header() {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -59,14 +76,51 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-      <div className="flex items-center gap-4">
-        <h1 className="text-lg font-semibold">
+    <header className="flex flex-col gap-3 border-b bg-card px-4 py-3 sm:h-16 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+      <div className="flex w-full items-center gap-3 sm:w-auto">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="sm:hidden">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Open navigation</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="left-0 top-0 h-full w-[85vw] max-w-xs translate-x-0 translate-y-0 rounded-none border-r p-0">
+            <div className="flex h-16 items-center gap-2 border-b px-6">
+              <Music2 className="h-7 w-7 text-spotify-green" />
+              <span className="text-lg font-bold">Spotify Stats</span>
+            </div>
+            <nav className="space-y-1 p-4">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                <DialogClose asChild key={item.name}>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-spotify-green/10 text-spotify-green"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.name}
+                  </Link>
+                </DialogClose>
+                );
+              })}
+            </nav>
+          </DialogContent>
+        </Dialog>
+        <h1 className="text-base font-semibold sm:text-lg">
           Welcome back, {session?.user?.name || "User"}
         </h1>
+      </div>
+      <div className="w-full sm:w-auto">
         <SearchBar />
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-4">
         {(syncResult || shareResult) && (
           <span className="text-sm text-muted-foreground">
             {syncResult || shareResult}
@@ -103,8 +157,4 @@ export function Header() {
       </div>
     </header>
   );
-}
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
 }

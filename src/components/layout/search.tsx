@@ -99,7 +99,7 @@ export function SearchBar() {
       results.genres.length > 0);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative w-full sm:w-auto">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
@@ -109,7 +109,7 @@ export function SearchBar() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results && setIsOpen(true)}
-          className="h-9 w-64 rounded-full bg-muted/50 border border-border pl-9 pr-8 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent transition-all"
+          className="h-9 w-full rounded-full bg-muted/50 border border-border pl-9 pr-8 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent transition-all sm:w-64"
         />
         {query && (
           <button
@@ -122,7 +122,7 @@ export function SearchBar() {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-lg border bg-card shadow-lg z-50">
+        <div className="absolute top-full mt-2 w-full max-h-96 overflow-y-auto rounded-lg border bg-card shadow-lg z-50 sm:w-80">
           {loading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Searching...

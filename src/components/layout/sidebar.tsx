@@ -22,7 +22,7 @@ import {
   Ticket,
 } from "lucide-react";
 
-const navigation = [
+export const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Wrapped", href: "/dashboard/wrapped", icon: Gift },
   { name: "Insights", href: "/dashboard/insights", icon: Brain },
