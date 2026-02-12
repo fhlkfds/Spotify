@@ -90,7 +90,7 @@ export default function WrappedPage() {
   const fetchWrapped = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams(searchParams);
+      const params = new URLSearchParams(searchParams.toString());
       params.set("period", periodType);
       params.set("year", selectedYear.toString());
       params.set("month", selectedMonth.toString());

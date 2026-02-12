@@ -58,12 +58,11 @@ export default function DashboardPage() {
     async function fetchData() {
       setLoading(true);
       try {
-        const params = new URLSearchParams(searchParams);
         const [statsRes, trendsRes, genresRes, newArtistsRes] = await Promise.all([
-          fetch(`/api/stats?range=${range}&${params}`),
-          fetch(`/api/stats/trends?days=365&${params}`),
-          fetch(`/api/stats/genres?${params}`),
-          fetch(`/api/stats/new-artists?${params}`),
+          fetch(`/api/stats?range=${range}&${searchParams}`),
+          fetch(`/api/stats/trends?days=365&${searchParams}`),
+          fetch(`/api/stats/genres?${searchParams}`),
+          fetch(`/api/stats/new-artists?${searchParams}`),
         ]);
 
         if (statsRes.ok) {

@@ -38,8 +38,7 @@ export default function GenresPage() {
   useEffect(() => {
     async function fetchGenres() {
       try {
-        const params = new URLSearchParams(searchParams);
-        const res = await fetch(`/api/stats/genres?${params}`);
+        const res = await fetch(`/api/stats/genres?${searchParams}`);
         if (res.ok) {
           const genresData = await res.json();
           setData(genresData);

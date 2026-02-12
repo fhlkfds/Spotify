@@ -26,8 +26,7 @@ export default function ArtistsPage() {
   useEffect(() => {
     async function fetchArtists() {
       try {
-        const params = new URLSearchParams(searchParams);
-        const res = await fetch(`/api/stats/artists?${params}`);
+        const res = await fetch(`/api/stats/artists?${searchParams}`);
         if (res.ok) {
           const data = await res.json();
           setArtists(data.artists);

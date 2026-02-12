@@ -117,7 +117,7 @@ export default function ObsessedPage() {
     async function fetchObsessed() {
       try {
         setLoading(true);
-        const params = new URLSearchParams(searchParams);
+        const params = new URLSearchParams(searchParams.toString());
         params.set("days", days.toString());
         const res = await fetch(`/api/stats/obsessed?${params}`);
         if (res.ok) {

@@ -44,7 +44,7 @@ export default function GenreEvolutionPage() {
     async function fetchData() {
       try {
         setLoading(true);
-        const params = new URLSearchParams(searchParams);
+        const params = new URLSearchParams(searchParams.toString());
         params.set("months", months.toString());
         const res = await fetch(`/api/stats/genre-evolution?${params}`);
         if (res.ok) {

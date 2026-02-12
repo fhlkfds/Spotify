@@ -58,8 +58,7 @@ export default function DiversityPage() {
   useEffect(() => {
     async function fetchDiversity() {
       try {
-        const params = new URLSearchParams(searchParams);
-        const res = await fetch(`/api/stats/diversity?${params}`);
+        const res = await fetch(`/api/stats/diversity?${searchParams}`);
         if (res.ok) {
           const diversityData = await res.json();
           setData(diversityData);

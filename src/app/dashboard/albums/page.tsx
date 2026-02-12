@@ -30,8 +30,7 @@ export default function AlbumsPage() {
   useEffect(() => {
     async function fetchAlbums() {
       try {
-        const params = new URLSearchParams(searchParams);
-        const res = await fetch(`/api/stats/albums?${params}`);
+        const res = await fetch(`/api/stats/albums?${searchParams}`);
         if (res.ok) {
           const data = await res.json();
           setAlbums(data.albums);

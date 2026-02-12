@@ -27,7 +27,7 @@ export default function TrendsPage() {
   useEffect(() => {
     async function fetchTrends() {
       try {
-        const params = new URLSearchParams(searchParams);
+        const params = new URLSearchParams(searchParams.toString());
         params.set("days", "90");
         const res = await fetch(`/api/stats/trends?${params}`);
         if (res.ok) {

@@ -42,8 +42,7 @@ export default function InsightsPage() {
   useEffect(() => {
     async function fetchInsights() {
       try {
-        const params = new URLSearchParams(searchParams);
-        const res = await fetch(`/api/stats/insights?${params}`);
+        const res = await fetch(`/api/stats/insights?${searchParams}`);
         if (res.ok) {
           const insightsData = await res.json();
           setData(insightsData);
