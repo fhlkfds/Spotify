@@ -33,6 +33,7 @@ interface FileStatus {
   error?: string;
   isChunk?: boolean;
   chunkInfo?: string;
+  showErrors?: boolean;
 }
 
 // Maximum entries per chunk to avoid timeouts (500 = ~30-60 sec processing time)
@@ -281,6 +282,14 @@ export default function SettingsPage() {
       await importSingleFile(fileStatus);
     }
   }, [files, importSingleFile]);
+
+  const toggleErrors = useCallback((index: number) => {
+    setFiles((prev) =>
+      prev.map((f, i) =>
+        i === index ? { ...f, showErrors: !f.showErrors } : f
+      )
+    );
+  }, []);
 
   // Batch import all pending files
   const handleBatchImport = async () => {
@@ -541,10 +550,23 @@ export default function SettingsPage() {
                         )}
 
                         {fileStatus.status === "success" && fileStatus.result && (
-                          <div className="text-xs text-green-400/80 mt-1">
-                            Imported: {fileStatus.result.imported.toLocaleString()} plays
-                            {fileStatus.result.duplicates > 0 &&
-                              ` (${fileStatus.result.duplicates} duplicates)`}
+                          <div className="text-xs mt-1 space-y-1">
+                            {fileStatus.result.imported > 0 ? (
+                              <div className="text-green-400/80">
+                                ✓ Imported: {fileStatus.result.imported.toLocaleString()} plays
+                                {fileStatus.result.duplicates > 0 &&
+                                  ` (${fileStatus.result.duplicates} duplicates)`}
+                              </div>
+                            ) : (
+                              <div className="text-yellow-400">
+                                ⚠️ 0 tracks imported
+                              </div>
+                            )}
+                            {fileStatus.result.failed > 0 && (
+                              <div className="text-red-400">
+                                ✗ Failed: {fileStatus.result.failed.toLocaleString()} tracks
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -555,6 +577,55 @@ export default function SettingsPage() {
                         {fileStatus.status === "importing" && (
                           <div className="text-xs text-blue-400 mt-1">Importing...</div>
                         )}
+
+                        {/* Show errors button if there are errors and 0 imports */}
+                        {fileStatus.status === "success" &&
+                          fileStatus.result &&
+                          fileStatus.result.errors.length > 0 &&
+                          fileStatus.result.imported === 0 && (
+                            <button
+                              onClick={() => toggleErrors(index)}
+                              className="text-xs text-yellow-400 hover:text-yellow-300 mt-1 flex items-center gap-1"
+                            >
+                              {fileStatus.showErrors ? "▼" : "▶"} Show why ({fileStatus.result.errors.length} errors)
+                            </button>
+                          )}
+
+                        {/* Show errors for any successful import with failures */}
+                        {fileStatus.status === "success" &&
+                          fileStatus.result &&
+                          fileStatus.result.errors.length > 0 &&
+                          fileStatus.result.imported > 0 && (
+                            <button
+                              onClick={() => toggleErrors(index)}
+                              className="text-xs text-orange-400 hover:text-orange-300 mt-1 flex items-center gap-1"
+                            >
+                              {fileStatus.showErrors ? "▼" : "▶"} Show errors ({fileStatus.result.errors.length})
+                            </button>
+                          )}
+
+                        {/* Expanded error details */}
+                        {fileStatus.showErrors &&
+                          fileStatus.result &&
+                          fileStatus.result.errors.length > 0 && (
+                            <div className="mt-2 p-2 bg-background/50 rounded text-xs space-y-1 max-h-40 overflow-y-auto">
+                              <div className="font-medium text-yellow-400 mb-1">
+                                {fileStatus.result.imported === 0
+                                  ? "Why nothing was imported:"
+                                  : "Errors encountered:"}
+                              </div>
+                              {fileStatus.result.errors.slice(0, 10).map((err, i) => (
+                                <div key={i} className="text-muted-foreground">
+                                  • {err}
+                                </div>
+                              ))}
+                              {fileStatus.result.errors.length > 10 && (
+                                <div className="text-muted-foreground/50 italic">
+                                  ...and {fileStatus.result.errors.length - 10} more errors
+                                </div>
+                              )}
+                            </div>
+                          )}
                       </div>
                     </div>
 
