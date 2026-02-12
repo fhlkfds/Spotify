@@ -77,11 +77,15 @@ function getDateRangeFromPreset(preset: DateRangePreset): { startDate: Date; end
         endDate: lastYearEnd,
       };
 
-    default:
+    default: {
+      // Default to last year
+      const defaultYearAgo = new Date(today);
+      defaultYearAgo.setFullYear(defaultYearAgo.getFullYear() - 1);
       return {
-        startDate: yearAgo,
+        startDate: defaultYearAgo,
         endDate: now,
       };
+    }
   }
 }
 
