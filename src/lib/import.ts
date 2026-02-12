@@ -11,11 +11,11 @@ import type {
 // Minimum play duration to count (30 seconds in ms)
 const MIN_PLAY_DURATION_MS = 30000;
 
-// Batch size for processing
-const BATCH_SIZE = 50;
+// Batch size for processing (increased for faster imports)
+const BATCH_SIZE = 100;
 
-// Delay between batches to avoid rate limiting (ms)
-const BATCH_DELAY_MS = 100;
+// Delay between batches to avoid rate limiting (ms) (reduced for faster imports)
+const BATCH_DELAY_MS = 50;
 
 // In-memory cache for track lookups
 const trackCache = new Map<string, SpotifyTrack | null>();
@@ -150,7 +150,7 @@ async function lookupTrack(
 }
 
 /**
- * Import a batch of history entries
+ * Import a batch of history entries (with parallel track lookups)
  */
 async function importBatch(
   userId: string,
@@ -163,10 +163,22 @@ async function importBatch(
   let failed = 0;
   const errors: string[] = [];
 
-  for (const entry of entries) {
-    try {
-      const track = await lookupTrack(spotify, entry);
+  // Look up all tracks in parallel for speed
+  const trackLookups = await Promise.allSettled(
+    entries.map(entry => lookupTrack(spotify, entry).then(track => ({ entry, track })))
+  );
 
+  // Process each result
+  for (const result of trackLookups) {
+    if (result.status === 'rejected') {
+      failed++;
+      errors.push(`Lookup failed: ${result.reason}`);
+      continue;
+    }
+
+    const { entry, track } = result.value;
+
+    try {
       if (!track) {
         failed++;
         errors.push(`Track not found: ${entry.artistName} - ${entry.trackName}`);

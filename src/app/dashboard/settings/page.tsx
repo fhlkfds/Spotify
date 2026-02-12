@@ -327,6 +327,9 @@ export default function SettingsPage() {
                 <code className="bg-background px-1 rounded">endsong_*.json</code> files below
               </li>
             </ol>
+            <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-500">
+              ⚠️ <strong>Large files:</strong> If you have a very large file (&gt;5MB), consider splitting it or importing one file at a time to avoid timeouts.
+            </div>
           </div>
 
           {/* Dropzone */}
