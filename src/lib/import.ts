@@ -175,12 +175,13 @@ async function retryWithBackoff<T>(
 
 /**
  * Look up track info from Spotify API with caching and retry logic
+ * Optimized to use track IDs directly when available (from extended history)
  */
 async function lookupTrack(
   spotify: SpotifyClient,
   entry: NormalizedHistoryEntry
 ): Promise<SpotifyTrack | null> {
-  // If we have a track ID from extended history, fetch directly
+  // If we have a track ID from extended history, fetch directly (MUCH faster!)
   if (entry.trackId) {
     const cacheKey = entry.trackId;
     if (trackCache.has(cacheKey)) {
@@ -200,7 +201,8 @@ async function lookupTrack(
     }
   }
 
-  // Otherwise, search by artist and track name
+  // For StreamingHistory format (no track IDs), search by name
+  // This is slower and more rate-limit prone
   const cacheKey = getCacheKey(entry.artistName, entry.trackName);
   if (trackCache.has(cacheKey)) {
     return trackCache.get(cacheKey)!;
@@ -221,7 +223,40 @@ async function lookupTrack(
 }
 
 /**
- * Import a batch of history entries (with parallel track lookups)
+ * Batch lookup tracks by ID (up to 50 at a time) - MUCH faster than individual lookups
+ */
+async function batchLookupTracksByIds(
+  spotify: SpotifyClient,
+  trackIds: string[]
+): Promise<Map<string, SpotifyTrack>> {
+  const results = new Map<string, SpotifyTrack>();
+
+  // Process in batches of 50 (Spotify's limit)
+  for (let i = 0; i < trackIds.length; i += 50) {
+    const batch = trackIds.slice(i, i + 50);
+
+    try {
+      const response = await retryWithBackoff(() => spotify.getTracks(batch));
+      response.tracks.forEach((track) => {
+        if (track) {
+          results.set(track.id, track);
+        }
+      });
+    } catch (error) {
+      console.error(`Failed to batch fetch ${batch.length} tracks:`, error);
+    }
+
+    // Small delay between batches
+    if (i + 50 < trackIds.length) {
+      await sleep(200);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Import a batch of history entries (optimized for track IDs)
  */
 async function importBatch(
   userId: string,
@@ -234,9 +269,26 @@ async function importBatch(
   let failed = 0;
   const errors: string[] = [];
 
-  // Look up tracks with limited concurrency to avoid rate limiting
+  // Separate entries with track IDs from those without
+  const entriesWithIds = entries.filter((e) => e.trackId);
+  const entriesWithoutIds = entries.filter((e) => !e.trackId);
+
+  // Batch lookup all entries that have track IDs (MUCH faster!)
+  const trackIdMap = new Map<string, SpotifyTrack>();
+  if (entriesWithIds.length > 0) {
+    const uniqueTrackIds = [...new Set(entriesWithIds.map((e) => e.trackId!))];
+    console.log(`Batch looking up ${uniqueTrackIds.length} unique tracks with IDs`);
+
+    const batchResults = await batchLookupTracksByIds(spotify, uniqueTrackIds);
+    batchResults.forEach((track, id) => {
+      trackCache.set(id, track);
+      trackIdMap.set(id, track);
+    });
+  }
+
+  // For entries without IDs, look up individually (slower)
   const trackLookups = await processConcurrently(
-    entries,
+    entriesWithoutIds,
     async (entry) => {
       const track = await lookupTrack(spotify, entry);
       return { entry, track };
@@ -244,7 +296,87 @@ async function importBatch(
     MAX_CONCURRENT_REQUESTS
   );
 
-  // Process each result
+  // Process entries with track IDs first (from batch lookup)
+  for (const entry of entriesWithIds) {
+    const track = trackIdMap.get(entry.trackId!);
+
+    try {
+      if (!track) {
+        failed++;
+        errors.push(`Track ID ${entry.trackId} not found: ${entry.artistName} - ${entry.trackName}`);
+        continue;
+      }
+
+      const primaryArtist = track.artists[0];
+      const album = track.album;
+
+      // Upsert artist
+      await prisma.artist.upsert({
+        where: { id: primaryArtist.id },
+        update: { name: primaryArtist.name },
+        create: {
+          id: primaryArtist.id,
+          name: primaryArtist.name,
+        },
+      });
+
+      // Upsert album
+      await prisma.album.upsert({
+        where: { id: album.id },
+        update: {
+          name: album.name,
+          imageUrl: album.images[0]?.url,
+        },
+        create: {
+          id: album.id,
+          name: album.name,
+          imageUrl: album.images[0]?.url,
+          artistId: primaryArtist.id,
+        },
+      });
+
+      // Upsert track
+      await prisma.track.upsert({
+        where: { id: track.id },
+        update: {
+          name: track.name,
+          durationMs: track.duration_ms,
+        },
+        create: {
+          id: track.id,
+          name: track.name,
+          durationMs: track.duration_ms,
+          albumId: album.id,
+          artistId: primaryArtist.id,
+        },
+      });
+
+      // Try to create play (will fail if duplicate due to unique constraint)
+      try {
+        await prisma.play.create({
+          data: {
+            userId,
+            trackId: track.id,
+            artistId: primaryArtist.id,
+            albumId: album.id,
+            playedAt: entry.playedAt,
+          },
+        });
+        imported++;
+      } catch {
+        // Duplicate play
+        duplicates++;
+      }
+
+      onProgress?.(imported, duplicates, failed);
+    } catch (error) {
+      failed++;
+      const message = error instanceof Error ? error.message : "Unknown error";
+      errors.push(`Failed to import ${entry.artistName} - ${entry.trackName}: ${message}`);
+    }
+  }
+
+  // Process entries without track IDs (from search results)
   for (const result of trackLookups) {
     if (result.status === 'rejected') {
       failed++;
