@@ -47,6 +47,7 @@ export default function SettingsPage() {
   const [overallResult, setOverallResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [showChunkNotice, setShowChunkNotice] = useState(false);
 
   // Process and potentially split files
   const processFiles = useCallback(async (rawFiles: File[]): Promise<FileStatus[]> => {
@@ -198,11 +199,22 @@ export default function SettingsPage() {
         // Process files (auto-split if needed)
         const newFileStatuses = await processFiles(droppedFiles);
 
+        // If any files were split, automatically switch to individual mode
+        const hasChunks = newFileStatuses.some((f) => f.isChunk);
+        if (hasChunks) {
+          if (importMode === "batch") {
+            setImportMode("individual");
+          }
+          setShowChunkNotice(true);
+          setTimeout(() => setShowChunkNotice(false), 10000); // Hide after 10 seconds
+          console.log("Files were split into chunks and will be imported one by one");
+        }
+
         setFiles((prev) => [...prev, ...newFileStatuses]);
         setIsProcessingFiles(false);
 
         // If individual mode, import each file immediately
-        if (importMode === "individual") {
+        if (importMode === "individual" || hasChunks) {
           for (const fileStatus of newFileStatuses) {
             await importSingleFile(fileStatus);
           }
@@ -226,11 +238,22 @@ export default function SettingsPage() {
         // Process files (auto-split if needed)
         const newFileStatuses = await processFiles(selectedFiles);
 
+        // If any files were split, automatically switch to individual mode
+        const hasChunks = newFileStatuses.some((f) => f.isChunk);
+        if (hasChunks) {
+          if (importMode === "batch") {
+            setImportMode("individual");
+          }
+          setShowChunkNotice(true);
+          setTimeout(() => setShowChunkNotice(false), 10000); // Hide after 10 seconds
+          console.log("Files were split into chunks and will be imported one by one");
+        }
+
         setFiles((prev) => [...prev, ...newFileStatuses]);
         setIsProcessingFiles(false);
 
         // If individual mode, import each file immediately
-        if (importMode === "individual") {
+        if (importMode === "individual" || hasChunks) {
           for (const fileStatus of newFileStatuses) {
             await importSingleFile(fileStatus);
           }
@@ -341,6 +364,17 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Chunk Notice */}
+          {showChunkNotice && (
+            <Alert className="border-blue-500/50 bg-blue-500/10">
+              <AlertCircle className="h-4 w-4 text-blue-500" />
+              <AlertTitle className="text-blue-500">Files Auto-Split</AlertTitle>
+              <AlertDescription className="text-blue-400/80">
+                Your large file was automatically split into smaller chunks and will be imported one by one to prevent timeouts. Each chunk will import separately and you&apos;ll see progress for each.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Import Mode Selector */}
           <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
             <span className="text-sm font-medium">Import Mode:</span>
