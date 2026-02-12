@@ -35,8 +35,9 @@ interface FileStatus {
   chunkInfo?: string;
 }
 
-// Maximum entries per chunk to avoid timeouts (2000 = ~2-3 min processing time)
-const MAX_ENTRIES_PER_CHUNK = 2000;
+// Maximum entries per chunk to avoid timeouts (500 = ~30-60 sec processing time)
+// Reduced to stay well under Cloudflare's 100-second timeout
+const MAX_ENTRIES_PER_CHUNK = 500;
 
 export default function SettingsPage() {
   const [files, setFiles] = useState<FileStatus[]>([]);
