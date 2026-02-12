@@ -127,7 +127,7 @@ export function DateRangeFilter({ onChange, className }: DateRangeFilterProps) {
     const { startDate, endDate } = getDateRangeFromPreset(newPreset);
 
     // Update URL params
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(searchParams.toString());
     params.set("range", newPreset);
     params.set("startDate", startDate.toISOString());
     params.set("endDate", endDate.toISOString());
@@ -145,7 +145,7 @@ export function DateRangeFilter({ onChange, className }: DateRangeFilterProps) {
     endDate.setHours(23, 59, 59, 999);
 
     // Update URL params
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(searchParams.toString());
     params.set("range", "custom");
     params.set("startDate", startDate.toISOString());
     params.set("endDate", endDate.toISOString());
