@@ -58,10 +58,19 @@ export default function SettingsPage() {
         body: formData,
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error("Failed to parse response as JSON:", parseError);
+        console.error("Response status:", response.status);
+        const text = await response.text().catch(() => "Unable to read response");
+        console.error("Response preview:", text.substring(0, 500));
+        throw new Error(`Server returned invalid response (${response.status}). Check console for details.`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "Import failed");
+        throw new Error(data.error || `Import failed with status ${response.status}`);
       }
 
       // Update status to success
@@ -198,10 +207,19 @@ export default function SettingsPage() {
       clearInterval(progressInterval);
       setProgress(100);
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error("Failed to parse response as JSON:", parseError);
+        console.error("Response status:", response.status);
+        const text = await response.text().catch(() => "Unable to read response");
+        console.error("Response preview:", text.substring(0, 500));
+        throw new Error(`Server returned invalid response (${response.status}). Are you logged in? Check console for details.`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "Import failed");
+        throw new Error(data.error || `Import failed with status ${response.status}`);
       }
 
       // Update all pending files to success
