@@ -276,7 +276,7 @@ async function importBatch(
   // Batch lookup all entries that have track IDs (MUCH faster!)
   const trackIdMap = new Map<string, SpotifyTrack>();
   if (entriesWithIds.length > 0) {
-    const uniqueTrackIds = [...new Set(entriesWithIds.map((e) => e.trackId!))];
+    const uniqueTrackIds = Array.from(new Set(entriesWithIds.map((e) => e.trackId!)));
     console.log(`Batch looking up ${uniqueTrackIds.length} unique tracks with IDs`);
 
     const batchResults = await batchLookupTracksByIds(spotify, uniqueTrackIds);
