@@ -50,6 +50,10 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
   const [showChunkNotice, setShowChunkNotice] = useState(false);
+  const [localFiles, setLocalFiles] = useState<{ name: string; size: number; modified: string }[]>([]);
+  const [isLoadingLocalFiles, setIsLoadingLocalFiles] = useState(false);
+  const [isImportingLocal, setIsImportingLocal] = useState(false);
+  const [localImportResult, setLocalImportResult] = useState<ImportResult | null>(null);
 
   // Process and potentially split files
   const processFiles = useCallback(async (rawFiles: File[]): Promise<FileStatus[]> => {
@@ -291,6 +295,56 @@ export default function SettingsPage() {
     );
   }, []);
 
+  // Load local files from import folder
+  const loadLocalFiles = useCallback(async () => {
+    setIsLoadingLocalFiles(true);
+    try {
+      const response = await fetch("/api/import/local");
+      const data = await response.json();
+      setLocalFiles(data.files || []);
+    } catch (error) {
+      console.error("Failed to load local files:", error);
+      setLocalFiles([]);
+    } finally {
+      setIsLoadingLocalFiles(false);
+    }
+  }, []);
+
+  // Import from local folder
+  const handleLocalImport = useCallback(async () => {
+    setIsImportingLocal(true);
+    setLocalImportResult(null);
+
+    try {
+      const response = await fetch("/api/import/local", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Local import failed");
+      }
+
+      setLocalImportResult(data);
+      // Refresh the file list
+      await loadLocalFiles();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Local import failed";
+      setLocalImportResult({
+        success: false,
+        imported: 0,
+        duplicates: 0,
+        failed: 0,
+        skipped: 0,
+        errors: [message],
+        message,
+      });
+    } finally {
+      setIsImportingLocal(false);
+    }
+  }, [loadLocalFiles]);
+
   // Batch import all pending files
   const handleBatchImport = async () => {
     const pendingFiles = files.filter((f) => f.status === "pending");
@@ -364,6 +418,108 @@ export default function SettingsPage() {
           Manage your account and import listening history
         </p>
       </div>
+
+      {/* Local Import Section */}
+      <Card className="glass border-blue-500/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5 text-blue-500" />
+            Local Import (No Spotify API)
+          </CardTitle>
+          <CardDescription>
+            Import JSON files from the server&apos;s import folder - No API calls, no rate limits!
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-blue-500/10 p-4 space-y-3">
+            <h4 className="font-medium text-blue-400">How it works:</h4>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+              <li>Place your Spotify JSON files in the <code className="bg-background px-1 rounded">import/</code> folder on the server</li>
+              <li>Click "Scan for Files" to see available files</li>
+              <li>Click "Import All Files" to process them</li>
+              <li>No Spotify API calls = No rate limiting = Much faster!</li>
+            </ol>
+            <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
+              ⚠️ <strong>Note:</strong> Only works with Extended History (endsong_*.json) files that contain track IDs. StreamingHistory files will be skipped.
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={loadLocalFiles}
+              disabled={isLoadingLocalFiles || isImportingLocal}
+              variant="outline"
+            >
+              {isLoadingLocalFiles ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileJson className="h-4 w-4 mr-2" />
+              )}
+              Scan for Files
+            </Button>
+
+            {localFiles.length > 0 && (
+              <Button
+                onClick={handleLocalImport}
+                disabled={isImportingLocal}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                {isImportingLocal ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                Import All Files ({localFiles.length})
+              </Button>
+            )}
+          </div>
+
+          {localFiles.length > 0 && (
+            <div className="rounded-lg bg-muted/50 p-4">
+              <h4 className="font-medium text-sm mb-2">Files in import folder:</h4>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {localFiles.map((file, i) => (
+                  <li key={i} className="flex justify-between">
+                    <span>{file.name}</span>
+                    <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {localImportResult && (
+            <Alert className={localImportResult.success ? "border-green-500/50 bg-green-500/10" : "border-red-500/50 bg-red-500/10"}>
+              {localImportResult.success ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              )}
+              <AlertTitle className={localImportResult.success ? "text-green-500" : "text-red-500"}>
+                {localImportResult.success ? "Import Complete" : "Import Failed"}
+              </AlertTitle>
+              <AlertDescription className={localImportResult.success ? "text-green-400/80" : "text-red-400/80"}>
+                <ul className="mt-2 space-y-1">
+                  <li>Imported: {localImportResult.imported.toLocaleString()} plays</li>
+                  <li>Duplicates skipped: {localImportResult.duplicates.toLocaleString()}</li>
+                  <li>Failed: {localImportResult.failed.toLocaleString()}</li>
+                  <li>Skipped (no track ID): {localImportResult.skipped.toLocaleString()}</li>
+                </ul>
+                {localImportResult.errors.length > 0 && (
+                  <div className="mt-2 text-xs">
+                    <strong>Errors:</strong>
+                    <ul className="list-disc list-inside mt-1">
+                      {localImportResult.errors.slice(0, 5).map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Import Section */}
       <Card className="glass">
