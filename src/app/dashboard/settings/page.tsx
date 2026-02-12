@@ -26,6 +26,8 @@ import {
   CheckCircle,
   Sparkles,
   ArrowRight,
+  Image,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +69,13 @@ export default function SettingsPage() {
   const [isLoadingLocalFiles, setIsLoadingLocalFiles] = useState(false);
   const [isImportingLocal, setIsImportingLocal] = useState(false);
   const [localImportResult, setLocalImportResult] = useState<ImportResult | null>(null);
+  const [isFetchingImages, setIsFetchingImages] = useState(false);
+  const [fetchImagesResult, setFetchImagesResult] = useState<{
+    artistsUpdated: number;
+    albumsUpdated: number;
+    failed: number;
+  } | null>(null);
+  const [missingImagesCount, setMissingImagesCount] = useState<{ artists: number; albums: number } | null>(null);
 
   // Export state
   type ExportFormat = "json" | "csv" | "pdf";
@@ -429,6 +438,45 @@ export default function SettingsPage() {
       setIsImportingLocal(false);
     }
   }, [loadLocalFiles]);
+
+  // Fetch missing images
+  const checkMissingImages = useCallback(async () => {
+    try {
+      const response = await fetch("/api/fetch-images");
+      if (response.ok) {
+        const count = await response.json();
+        setMissingImagesCount(count);
+      }
+    } catch (error) {
+      console.error("Failed to check missing images:", error);
+    }
+  }, []);
+
+  const handleFetchImages = useCallback(async () => {
+    setIsFetchingImages(true);
+    setFetchImagesResult(null);
+
+    try {
+      const response = await fetch("/api/fetch-images?limit=100", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch images");
+      }
+
+      setFetchImagesResult(data);
+      // Refresh the missing images count
+      await checkMissingImages();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to fetch images";
+      console.error(message);
+    } finally {
+      setIsFetchingImages(false);
+    }
+  }, [checkMissingImages]);
 
   // Export handlers
   interface ExportOption {
@@ -889,6 +937,87 @@ export default function SettingsPage() {
                         <li key={i}>{err}</li>
                       ))}
                     </ul>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Fetch Missing Images Section */}
+      <Card className="glass border-purple-500/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Image className="h-5 w-5 text-purple-500" />
+            Fetch Missing Images
+          </CardTitle>
+          <CardDescription>
+            After local import, fetch artist and album images from Spotify API
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-purple-500/10 p-4 space-y-3">
+            <h4 className="font-medium text-purple-400">Why do I need this?</h4>
+            <p className="text-sm text-muted-foreground">
+              Local imports don&apos;t fetch images to avoid rate limits and be faster.
+              Use this tool to fetch missing artist and album artwork from Spotify.
+            </p>
+          </div>
+
+          <div className="flex gap-2 items-center">
+            <Button
+              onClick={checkMissingImages}
+              disabled={isFetchingImages}
+              variant="outline"
+              size="sm"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Check Missing Images
+            </Button>
+
+            {missingImagesCount && (
+              <div className="text-sm text-muted-foreground">
+                {missingImagesCount.artists} artists, {missingImagesCount.albums} albums without images
+              </div>
+            )}
+          </div>
+
+          {missingImagesCount && (missingImagesCount.artists > 0 || missingImagesCount.albums > 0) && (
+            <Button
+              onClick={handleFetchImages}
+              disabled={isFetchingImages}
+              className="bg-purple-500 hover:bg-purple-600"
+            >
+              {isFetchingImages ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Fetching Images...
+                </>
+              ) : (
+                <>
+                  <Image className="h-4 w-4 mr-2" />
+                  Fetch Images (100 items)
+                </>
+              )}
+            </Button>
+          )}
+
+          {fetchImagesResult && (
+            <Alert className="border-green-500/50 bg-green-500/10">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <AlertTitle className="text-green-500">Images Fetched</AlertTitle>
+              <AlertDescription className="text-green-400/80">
+                <ul className="mt-2 space-y-1">
+                  <li>Artists updated: {fetchImagesResult.artistsUpdated}</li>
+                  <li>Albums updated: {fetchImagesResult.albumsUpdated}</li>
+                  {fetchImagesResult.failed > 0 && (
+                    <li className="text-yellow-400">Failed: {fetchImagesResult.failed}</li>
+                  )}
+                </ul>
+                {(fetchImagesResult.artistsUpdated + fetchImagesResult.albumsUpdated) >= 100 && (
+                  <div className="mt-2 text-xs">
+                    💡 Click &quot;Fetch Images&quot; again to process more items.
                   </div>
                 )}
               </AlertDescription>

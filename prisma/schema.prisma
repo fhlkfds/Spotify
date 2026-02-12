@@ -69,13 +69,14 @@ model VerificationToken {
 }
 
 model Artist {
-  id       String  @id
-  name     String
-  imageUrl String?
-  genres   String? // JSON array stored as string
-  plays    Play[]
-  tracks   Track[]
-  albums   Album[]
+  id        String  @id
+  spotifyId String? // Real Spotify artist ID (may differ from our generated ID)
+  name      String
+  imageUrl  String?
+  genres    String? // JSON array stored as string
+  plays     Play[]
+  tracks    Track[]
+  albums    Album[]
 }
 
 model Album {
