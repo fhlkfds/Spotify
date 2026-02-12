@@ -26,13 +26,65 @@ interface ImportResult {
   message: string;
 }
 
+interface FileStatus {
+  file: File;
+  status: "pending" | "importing" | "success" | "error";
+  result?: ImportResult;
+  error?: string;
+}
+
 export default function SettingsPage() {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<FileStatus[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [importMode, setImportMode] = useState<"batch" | "individual">("batch");
+  const [overallResult, setOverallResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Import a single file
+  const importSingleFile = useCallback(async (fileStatus: FileStatus) => {
+    // Update status to importing
+    setFiles((prev) =>
+      prev.map((f) => (f.file === fileStatus.file ? { ...f, status: "importing" as const } : f))
+    );
+
+    try {
+      const formData = new FormData();
+      formData.append("files", fileStatus.file);
+
+      const response = await fetch("/api/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Import failed");
+      }
+
+      // Update status to success
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.file === fileStatus.file
+            ? { ...f, status: "success" as const, result: data }
+            : f
+        )
+      );
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Import failed";
+
+      // Update status to error
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.file === fileStatus.file
+            ? { ...f, status: "error" as const, error: errorMessage }
+            : f
+        )
+      );
+    }
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -44,51 +96,94 @@ export default function SettingsPage() {
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-    const droppedFiles = Array.from(e.dataTransfer.files).filter((file) =>
-      file.name.endsWith(".json")
-    );
+      const droppedFiles = Array.from(e.dataTransfer.files).filter((file) =>
+        file.name.endsWith(".json")
+      );
 
-    if (droppedFiles.length > 0) {
-      setFiles((prev) => [...prev, ...droppedFiles]);
-      setResult(null);
-      setError(null);
-    }
-  }, []);
+      if (droppedFiles.length > 0) {
+        const newFileStatuses: FileStatus[] = droppedFiles.map((file) => ({
+          file,
+          status: "pending" as const,
+        }));
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []).filter((file) =>
-      file.name.endsWith(".json")
-    );
+        setFiles((prev) => [...prev, ...newFileStatuses]);
+        setOverallResult(null);
+        setError(null);
 
-    if (selectedFiles.length > 0) {
-      setFiles((prev) => [...prev, ...selectedFiles]);
-      setResult(null);
-      setError(null);
-    }
+        // If individual mode, import each file immediately
+        if (importMode === "individual") {
+          for (const fileStatus of newFileStatuses) {
+            await importSingleFile(fileStatus);
+          }
+        }
+      }
+    },
+    [importMode, importSingleFile]
+  );
 
-    // Reset input
-    e.target.value = "";
-  }, []);
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = Array.from(e.target.files || []).filter((file) =>
+        file.name.endsWith(".json")
+      );
+
+      if (selectedFiles.length > 0) {
+        const newFileStatuses: FileStatus[] = selectedFiles.map((file) => ({
+          file,
+          status: "pending" as const,
+        }));
+
+        setFiles((prev) => [...prev, ...newFileStatuses]);
+        setOverallResult(null);
+        setError(null);
+
+        // If individual mode, import each file immediately
+        if (importMode === "individual") {
+          for (const fileStatus of newFileStatuses) {
+            await importSingleFile(fileStatus);
+          }
+        }
+      }
+
+      // Reset input
+      e.target.value = "";
+    },
+    [importMode, importSingleFile]
+  );
 
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const handleImport = async () => {
-    if (files.length === 0) return;
+  const clearCompleted = useCallback(() => {
+    setFiles((prev) => prev.filter((f) => f.status !== "success"));
+  }, []);
+
+  const retryFailed = useCallback(async () => {
+    const failedFiles = files.filter((f) => f.status === "error");
+    for (const fileStatus of failedFiles) {
+      await importSingleFile(fileStatus);
+    }
+  }, [files, importSingleFile]);
+
+  // Batch import all pending files
+  const handleBatchImport = async () => {
+    const pendingFiles = files.filter((f) => f.status === "pending");
+    if (pendingFiles.length === 0) return;
 
     setIsImporting(true);
     setProgress(0);
-    setResult(null);
+    setOverallResult(null);
     setError(null);
 
     try {
       const formData = new FormData();
-      files.forEach((file) => formData.append("files", file));
+      pendingFiles.forEach((fileStatus) => formData.append("files", fileStatus.file));
 
       // Simulate progress (actual progress would require streaming)
       const progressInterval = setInterval(() => {
@@ -109,10 +204,24 @@ export default function SettingsPage() {
         throw new Error(data.error || "Import failed");
       }
 
-      setResult(data);
-      setFiles([]);
+      // Update all pending files to success
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.status === "pending" ? { ...f, status: "success" as const, result: data } : f
+        )
+      );
+
+      setOverallResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
+      const errorMessage = err instanceof Error ? err.message : "Import failed";
+      setError(errorMessage);
+
+      // Update all pending files to error
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.status === "pending" ? { ...f, status: "error" as const, error: errorMessage } : f
+        )
+      );
     } finally {
       setIsImporting(false);
     }
@@ -136,6 +245,36 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Import Mode Selector */}
+          <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
+            <span className="text-sm font-medium">Import Mode:</span>
+            <div className="flex gap-2">
+              <Button
+                variant={importMode === "batch" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setImportMode("batch")}
+                disabled={isImporting}
+                className={importMode === "batch" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
+              >
+                Batch Import
+              </Button>
+              <Button
+                variant={importMode === "individual" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setImportMode("individual")}
+                disabled={isImporting}
+                className={importMode === "individual" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
+              >
+                Import One by One
+              </Button>
+            </div>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {importMode === "batch"
+                ? "Add multiple files, then import all at once"
+                : "Each file imports immediately when added"}
+            </span>
+          </div>
+
           {/* Instructions */}
           <div className="rounded-lg bg-muted/50 p-4 space-y-3">
             <h4 className="font-medium">How to get your data:</h4>
@@ -205,29 +344,98 @@ export default function SettingsPage() {
           {/* Selected Files */}
           {files.length > 0 && (
             <div className="space-y-2">
-              <h4 className="font-medium text-sm">Selected files:</h4>
+              <h4 className="font-medium text-sm">
+                {importMode === "batch" ? "Selected files:" : "Files:"}
+              </h4>
               <div className="space-y-2">
-                {files.map((file, index) => (
+                {files.map((fileStatus, index) => (
                   <div
-                    key={`${file.name}-${index}`}
-                    className="flex items-center justify-between bg-muted/50 rounded-lg p-3"
+                    key={`${fileStatus.file.name}-${index}`}
+                    className={cn(
+                      "flex items-center justify-between rounded-lg p-3 transition-colors",
+                      fileStatus.status === "success" && "bg-green-500/10 border border-green-500/30",
+                      fileStatus.status === "error" && "bg-red-500/10 border border-red-500/30",
+                      fileStatus.status === "importing" && "bg-blue-500/10 border border-blue-500/30",
+                      fileStatus.status === "pending" && "bg-muted/50"
+                    )}
                   >
-                    <div className="flex items-center gap-2">
-                      <FileJson className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{file.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                      </span>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {fileStatus.status === "pending" && (
+                        <FileJson className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      )}
+                      {fileStatus.status === "importing" && (
+                        <Loader2 className="h-4 w-4 text-blue-500 animate-spin flex-shrink-0" />
+                      )}
+                      {fileStatus.status === "success" && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      )}
+                      {fileStatus.status === "error" && (
+                        <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm truncate">{fileStatus.file.name}</span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            ({(fileStatus.file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+
+                        {fileStatus.status === "success" && fileStatus.result && (
+                          <div className="text-xs text-green-400/80 mt-1">
+                            Imported: {fileStatus.result.imported.toLocaleString()} plays
+                            {fileStatus.result.duplicates > 0 &&
+                              ` (${fileStatus.result.duplicates} duplicates)`}
+                          </div>
+                        )}
+
+                        {fileStatus.status === "error" && fileStatus.error && (
+                          <div className="text-xs text-red-400 mt-1">{fileStatus.error}</div>
+                        )}
+
+                        {fileStatus.status === "importing" && (
+                          <div className="text-xs text-blue-400 mt-1">Importing...</div>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => removeFile(index)}
-                      className="text-muted-foreground hover:text-destructive"
-                      disabled={isImporting}
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </button>
+
+                    {fileStatus.status !== "importing" && (
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="text-muted-foreground hover:text-destructive flex-shrink-0"
+                        disabled={isImporting}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 ))}
+              </div>
+
+              {/* Action Buttons for File Management */}
+              <div className="flex gap-2 mt-2">
+                {files.filter((f) => f.status === "success").length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearCompleted}
+                    disabled={isImporting}
+                  >
+                    Clear Completed
+                  </Button>
+                )}
+                {files.filter((f) => f.status === "error").length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={retryFailed}
+                    disabled={isImporting}
+                    className="text-yellow-500 hover:text-yellow-400"
+                  >
+                    <Loader2 className="h-3 w-3 mr-1" />
+                    Retry Failed
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -243,37 +451,83 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Import Button */}
-          <Button
-            onClick={handleImport}
-            disabled={files.length === 0 || isImporting}
-            className="w-full bg-spotify-green hover:bg-spotify-green/90"
-          >
-            {isImporting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 mr-2" />
-                Import {files.length} {files.length === 1 ? "file" : "files"}
-              </>
-            )}
-          </Button>
+          {/* Import Button - Only show in batch mode */}
+          {importMode === "batch" && (
+            <Button
+              onClick={handleBatchImport}
+              disabled={files.filter((f) => f.status === "pending").length === 0 || isImporting}
+              className="w-full bg-spotify-green hover:bg-spotify-green/90"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import {files.filter((f) => f.status === "pending").length}{" "}
+                  {files.filter((f) => f.status === "pending").length === 1 ? "file" : "files"}
+                </>
+              )}
+            </Button>
+          )}
 
-          {/* Success Result */}
-          {result && result.success && (
+          {/* Overall Summary for Individual Mode */}
+          {importMode === "individual" && files.length > 0 && (
+            <div className="rounded-lg bg-muted/50 p-4">
+              <h4 className="font-medium text-sm mb-2">Import Summary</h4>
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total files:</span>
+                  <span>{files.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-green-500">Successful:</span>
+                  <span className="text-green-500">
+                    {files.filter((f) => f.status === "success").length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-red-500">Failed:</span>
+                  <span className="text-red-500">
+                    {files.filter((f) => f.status === "error").length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pending:</span>
+                  <span>{files.filter((f) => f.status === "pending").length}</span>
+                </div>
+                {files.filter((f) => f.status === "success").length > 0 && (
+                  <>
+                    <div className="border-t border-muted-foreground/20 my-2"></div>
+                    <div className="flex justify-between font-medium">
+                      <span className="text-spotify-green">Total plays imported:</span>
+                      <span className="text-spotify-green">
+                        {files
+                          .filter((f) => f.status === "success")
+                          .reduce((sum, f) => sum + (f.result?.imported || 0), 0)
+                          .toLocaleString()}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Success Result for Batch Mode */}
+          {overallResult && overallResult.success && (
             <Alert className="border-green-500/50 bg-green-500/10">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
               <AlertTitle className="text-green-500">Import Complete</AlertTitle>
               <AlertDescription className="text-green-400/80">
                 <ul className="mt-2 space-y-1">
-                  <li>Imported: {result.imported.toLocaleString()} plays</li>
-                  <li>Duplicates skipped: {result.duplicates.toLocaleString()}</li>
-                  {result.failed > 0 && (
+                  <li>Imported: {overallResult.imported.toLocaleString()} plays</li>
+                  <li>Duplicates skipped: {overallResult.duplicates.toLocaleString()}</li>
+                  {overallResult.failed > 0 && (
                     <li className="text-yellow-400">
-                      Failed: {result.failed.toLocaleString()} tracks
+                      Failed: {overallResult.failed.toLocaleString()} tracks
                     </li>
                   )}
                 </ul>
@@ -291,18 +545,18 @@ export default function SettingsPage() {
           )}
 
           {/* Error Details */}
-          {result && result.errors.length > 0 && (
+          {overallResult && overallResult.errors.length > 0 && (
             <div className="rounded-lg bg-muted/50 p-4">
               <h4 className="font-medium text-sm mb-2 text-yellow-500">
                 Some tracks could not be imported:
               </h4>
               <ul className="text-xs text-muted-foreground space-y-1 max-h-40 overflow-y-auto">
-                {result.errors.slice(0, 20).map((err, i) => (
+                {overallResult.errors.slice(0, 20).map((err, i) => (
                   <li key={i}>{err}</li>
                 ))}
-                {result.errors.length > 20 && (
+                {overallResult.errors.length > 20 && (
                   <li className="text-muted-foreground/50">
-                    ...and {result.errors.length - 20} more
+                    ...and {overallResult.errors.length - 20} more
                   </li>
                 )}
               </ul>
