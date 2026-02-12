@@ -11,11 +11,14 @@ import type {
 // Minimum play duration to count (30 seconds in ms)
 const MIN_PLAY_DURATION_MS = 30000;
 
-// Batch size for processing (increased for faster imports)
+// Batch size for processing
 const BATCH_SIZE = 100;
 
-// Delay between batches to avoid rate limiting (ms) (reduced for faster imports)
-const BATCH_DELAY_MS = 50;
+// Delay between batches to avoid rate limiting (ms)
+const BATCH_DELAY_MS = 100;
+
+// Maximum concurrent API requests to avoid rate limiting
+const MAX_CONCURRENT_REQUESTS = 10;
 
 // In-memory cache for track lookups
 const trackCache = new Map<string, SpotifyTrack | null>();
@@ -109,7 +112,59 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Look up track info from Spotify API with caching
+ * Process items in batches with limited concurrency
+ */
+async function processConcurrently<T, R>(
+  items: T[],
+  processor: (item: T) => Promise<R>,
+  concurrency: number
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    const batchResults = await Promise.allSettled(batch.map(processor));
+    results.push(...batchResults);
+
+    // Small delay between concurrent batches
+    if (i + concurrency < items.length) {
+      await sleep(100);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Retry a function with exponential backoff
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isLastAttempt = i === maxRetries - 1;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isRateLimitError = errorMessage.includes('429') || errorMessage.includes('rate limit');
+
+      if (isLastAttempt || !isRateLimitError) {
+        throw error;
+      }
+
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = baseDelay * Math.pow(2, i);
+      await sleep(delay);
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
+/**
+ * Look up track info from Spotify API with caching and retry logic
  */
 async function lookupTrack(
   spotify: SpotifyClient,
@@ -123,11 +178,12 @@ async function lookupTrack(
     }
 
     try {
-      const track = await spotify.getTrack(entry.trackId);
+      const track = await retryWithBackoff(() => spotify.getTrack(entry.trackId!));
       trackCache.set(cacheKey, track);
       return track;
-    } catch {
-      // Track might have been removed from Spotify
+    } catch (error) {
+      // Track might have been removed from Spotify or API error
+      console.warn(`Failed to fetch track ${entry.trackId}:`, error);
       trackCache.set(cacheKey, null);
       return null;
     }
@@ -140,10 +196,13 @@ async function lookupTrack(
   }
 
   try {
-    const track = await spotify.searchTrack(entry.trackName, entry.artistName);
+    const track = await retryWithBackoff(() =>
+      spotify.searchTrack(entry.trackName, entry.artistName)
+    );
     trackCache.set(cacheKey, track);
     return track;
-  } catch {
+  } catch (error) {
+    console.warn(`Failed to search track "${entry.trackName}" by "${entry.artistName}":`, error);
     trackCache.set(cacheKey, null);
     return null;
   }
@@ -163,9 +222,14 @@ async function importBatch(
   let failed = 0;
   const errors: string[] = [];
 
-  // Look up all tracks in parallel for speed
-  const trackLookups = await Promise.allSettled(
-    entries.map(entry => lookupTrack(spotify, entry).then(track => ({ entry, track })))
+  // Look up tracks with limited concurrency to avoid rate limiting
+  const trackLookups = await processConcurrently(
+    entries,
+    async (entry) => {
+      const track = await lookupTrack(spotify, entry);
+      return { entry, track };
+    },
+    MAX_CONCURRENT_REQUESTS
   );
 
   // Process each result
