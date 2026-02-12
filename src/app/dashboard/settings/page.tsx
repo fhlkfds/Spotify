@@ -320,7 +320,18 @@ export default function SettingsPage() {
         method: "POST",
       });
 
-      const data = await response.json();
+      // Get the response text first so we can debug if JSON parsing fails
+      const responseText = await response.text();
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Failed to parse local import response as JSON:", parseError);
+        console.error("Response status:", response.status);
+        console.error("Response preview:", responseText.substring(0, 500));
+        throw new Error(`Server returned invalid response (${response.status}). The import may have succeeded - check your dashboard. Check console for details.`);
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Local import failed");
