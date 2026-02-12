@@ -15,10 +15,12 @@ const MIN_PLAY_DURATION_MS = 30000;
 const BATCH_SIZE = 100;
 
 // Delay between batches to avoid rate limiting (ms)
-const BATCH_DELAY_MS = 100;
+// Increased to stay well under Spotify's ~180 req/min limit
+const BATCH_DELAY_MS = 500;
 
 // Maximum concurrent API requests to avoid rate limiting
-const MAX_CONCURRENT_REQUESTS = 10;
+// Reduced to 3 to be more conservative with Spotify's API
+const MAX_CONCURRENT_REQUESTS = 3;
 
 // In-memory cache for track lookups
 const trackCache = new Map<string, SpotifyTrack | null>();
@@ -126,9 +128,10 @@ async function processConcurrently<T, R>(
     const batchResults = await Promise.allSettled(batch.map(processor));
     results.push(...batchResults);
 
-    // Small delay between concurrent batches
+    // Delay between concurrent batches to respect rate limits
+    // With 3 concurrent requests and 1s delay, that's ~180 req/min max
     if (i + concurrency < items.length) {
-      await sleep(100);
+      await sleep(1000);
     }
   }
 
@@ -141,7 +144,7 @@ async function processConcurrently<T, R>(
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
-  baseDelay: number = 1000
+  baseDelay: number = 2000
 ): Promise<T> {
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -151,12 +154,19 @@ async function retryWithBackoff<T>(
       const errorMessage = error instanceof Error ? error.message : String(error);
       const isRateLimitError = errorMessage.includes('429') || errorMessage.includes('rate limit');
 
-      if (isLastAttempt || !isRateLimitError) {
+      if (isLastAttempt) {
         throw error;
       }
 
-      // Exponential backoff: 1s, 2s, 4s
+      // For rate limit errors, use longer delays
+      // For other errors, fail fast if not rate limiting
+      if (!isRateLimitError) {
+        throw error;
+      }
+
+      // Exponential backoff for rate limits: 2s, 4s, 8s
       const delay = baseDelay * Math.pow(2, i);
+      console.log(`Rate limited, waiting ${delay}ms before retry ${i + 1}/${maxRetries}`);
       await sleep(delay);
     }
   }
