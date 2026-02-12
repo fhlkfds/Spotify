@@ -78,13 +78,19 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        console.log(`[Import API] Starting import for ${entries.length} entries from ${file.name}`);
         const result = await importHistory(userId, accessToken, entries);
+        console.log(`[Import API] Completed ${file.name}: ${result.imported} imported, ${result.duplicates} duplicates, ${result.failed} failed`);
 
         totalImported += result.imported;
         totalDuplicates += result.duplicates;
         totalFailed += result.failed;
         totalSkipped += result.skipped;
         allErrors.push(...result.errors);
+
+        if (result.failed > 0 && result.errors.length > 0) {
+          console.log(`[Import API] Sample errors from ${file.name}:`, result.errors.slice(0, 3));
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         allErrors.push(`Failed to process ${file.name}: ${message}`);

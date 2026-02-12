@@ -183,7 +183,8 @@ async function lookupTrack(
       return track;
     } catch (error) {
       // Track might have been removed from Spotify or API error
-      console.warn(`Failed to fetch track ${entry.trackId}:`, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`Failed to fetch track ${entry.trackId}:`, errorMsg);
       trackCache.set(cacheKey, null);
       return null;
     }
@@ -202,9 +203,10 @@ async function lookupTrack(
     trackCache.set(cacheKey, track);
     return track;
   } catch (error) {
-    console.warn(`Failed to search track "${entry.trackName}" by "${entry.artistName}":`, error);
-    trackCache.set(cacheKey, null);
-    return null;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to search track "${entry.trackName}" by "${entry.artistName}":`, errorMsg);
+    // Return a more descriptive error by throwing with context
+    throw new Error(`Spotify API error: ${errorMsg}`);
   }
 }
 
@@ -236,7 +238,8 @@ async function importBatch(
   for (const result of trackLookups) {
     if (result.status === 'rejected') {
       failed++;
-      errors.push(`Lookup failed: ${result.reason}`);
+      const errorMsg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      errors.push(`${errorMsg}`);
       continue;
     }
 
@@ -245,7 +248,7 @@ async function importBatch(
     try {
       if (!track) {
         failed++;
-        errors.push(`Track not found: ${entry.artistName} - ${entry.trackName}`);
+        errors.push(`Track not found on Spotify: ${entry.artistName} - ${entry.trackName}`);
         continue;
       }
 
