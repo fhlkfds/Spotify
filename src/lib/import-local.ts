@@ -3,9 +3,23 @@ import { parseImportFile } from "./import";
 import type { NormalizedHistoryEntry, ImportResult } from "@/types";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 // Minimum play duration to count (30 seconds in ms)
 const MIN_PLAY_DURATION_MS = 30000;
+
+/**
+ * Generate a consistent ID based on a name
+ * This ensures the same artist/album always gets the same ID
+ */
+function generateConsistentId(name: string, type: 'artist' | 'album'): string {
+  // Normalize the name: lowercase, trim, remove extra spaces
+  const normalized = name.toLowerCase().trim().replace(/\s+/g, ' ');
+  // Create a hash of the normalized name
+  const hash = crypto.createHash('md5').update(normalized).digest('hex');
+  // Return first 22 characters (same length as Spotify IDs) with a prefix
+  return `local_${type}_${hash.substring(0, 16)}`;
+}
 
 // Maximum entries to process per request to avoid timeout (Cloudflare has ~100s timeout)
 // Processing ~500 entries takes about 30-60s, leaving plenty of margin
@@ -91,9 +105,12 @@ export async function importLocalFiles(userId: string, skipCount: number = 0): P
             continue;
           }
 
-          // Generate IDs based on names (since we don't have real IDs)
-          const artistId = entry.trackId.substring(0, 22); // Use part of track ID as artist ID
-          const albumId = entry.trackId.substring(0, 20) + 'ab'; // Use part of track ID as album ID
+          // Generate consistent IDs based on artist/album names
+          // This ensures the same artist/album always gets the same ID
+          const artistId = generateConsistentId(entry.artistName, 'artist');
+          const albumId = entry.albumName
+            ? generateConsistentId(`${entry.artistName}:${entry.albumName}`, 'album')
+            : `${artistId}_album`;
 
           // Track artist info
           if (!artistsMap.has(artistId)) {

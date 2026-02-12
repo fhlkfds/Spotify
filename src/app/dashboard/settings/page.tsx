@@ -76,6 +76,12 @@ export default function SettingsPage() {
     failed: number;
   } | null>(null);
   const [missingImagesCount, setMissingImagesCount] = useState<{ artists: number; albums: number } | null>(null);
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
+  const [deduplicateResult, setDeduplicateResult] = useState<{
+    artistsMerged: number;
+    albumsMerged: number;
+  } | null>(null);
+  const [duplicatesCount, setDuplicatesCount] = useState<{ duplicateArtists: number; duplicateAlbums: number } | null>(null);
 
   // Export state
   type ExportFormat = "json" | "csv" | "pdf";
@@ -477,6 +483,45 @@ export default function SettingsPage() {
       setIsFetchingImages(false);
     }
   }, [checkMissingImages]);
+
+  // Deduplicate artists and albums
+  const checkDuplicates = useCallback(async () => {
+    try {
+      const response = await fetch("/api/deduplicate");
+      if (response.ok) {
+        const count = await response.json();
+        setDuplicatesCount(count);
+      }
+    } catch (error) {
+      console.error("Failed to check duplicates:", error);
+    }
+  }, []);
+
+  const handleDeduplicate = useCallback(async () => {
+    setIsDeduplicating(true);
+    setDeduplicateResult(null);
+
+    try {
+      const response = await fetch("/api/deduplicate", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to deduplicate");
+      }
+
+      setDeduplicateResult(data);
+      // Refresh the duplicates count
+      await checkDuplicates();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to deduplicate";
+      console.error(message);
+    } finally {
+      setIsDeduplicating(false);
+    }
+  }, [checkDuplicates]);
 
   // Export handlers
   interface ExportOption {
@@ -939,6 +984,82 @@ export default function SettingsPage() {
                     </ul>
                   </div>
                 )}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Deduplicate Artists/Albums Section */}
+      <Card className="glass border-orange-500/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-orange-500" />
+            Deduplicate Artists &amp; Albums
+          </CardTitle>
+          <CardDescription>
+            Merge duplicate artists and albums that have the same name
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-orange-500/10 p-4 space-y-3">
+            <h4 className="font-medium text-orange-400">Why do I have duplicates?</h4>
+            <p className="text-sm text-muted-foreground">
+              Older imports created separate entries for each track. This tool merges all
+              artists/albums with the same name into a single entry.
+            </p>
+          </div>
+
+          <div className="flex gap-2 items-center">
+            <Button
+              onClick={checkDuplicates}
+              disabled={isDeduplicating}
+              variant="outline"
+              size="sm"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Check for Duplicates
+            </Button>
+
+            {duplicatesCount && (
+              <div className="text-sm text-muted-foreground">
+                {duplicatesCount.duplicateArtists} duplicate artists, {duplicatesCount.duplicateAlbums} duplicate albums
+              </div>
+            )}
+          </div>
+
+          {duplicatesCount && (duplicatesCount.duplicateArtists > 0 || duplicatesCount.duplicateAlbums > 0) && (
+            <Button
+              onClick={handleDeduplicate}
+              disabled={isDeduplicating}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {isDeduplicating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deduplicating...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4 mr-2" />
+                  Merge Duplicates
+                </>
+              )}
+            </Button>
+          )}
+
+          {deduplicateResult && (
+            <Alert className="border-green-500/50 bg-green-500/10">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <AlertTitle className="text-green-500">Deduplication Complete</AlertTitle>
+              <AlertDescription className="text-green-400/80">
+                <ul className="mt-2 space-y-1">
+                  <li>Artists merged: {deduplicateResult.artistsMerged}</li>
+                  <li>Albums merged: {deduplicateResult.albumsMerged}</li>
+                </ul>
+                <div className="mt-2 text-xs">
+                  ✅ Your library is now clean! Future imports will not create duplicates.
+                </div>
               </AlertDescription>
             </Alert>
           )}
