@@ -17,6 +17,10 @@ const nextConfig = {
       },
     ],
   },
+  experimental: {
+    // Increase body size limit for file uploads (30MB)
+    bodySizeLimit: "30mb",
+  },
 };
 
 module.exports = nextConfig;

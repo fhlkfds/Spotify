@@ -31,7 +31,12 @@ interface FileStatus {
   status: "pending" | "importing" | "success" | "error";
   result?: ImportResult;
   error?: string;
+  isChunk?: boolean;
+  chunkInfo?: string;
 }
+
+// Maximum entries per chunk to avoid timeouts (2000 = ~2-3 min processing time)
+const MAX_ENTRIES_PER_CHUNK = 2000;
 
 export default function SettingsPage() {
   const [files, setFiles] = useState<FileStatus[]>([]);
@@ -41,6 +46,77 @@ export default function SettingsPage() {
   const [importMode, setImportMode] = useState<"batch" | "individual">("batch");
   const [overallResult, setOverallResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+
+  // Process and potentially split files
+  const processFiles = useCallback(async (rawFiles: File[]): Promise<FileStatus[]> => {
+    const processedFiles: FileStatus[] = [];
+
+    for (const file of rawFiles) {
+      if (!file.name.endsWith(".json")) {
+        continue;
+      }
+
+      try {
+        // Read and parse the JSON file
+        const content = await file.text();
+        const data = JSON.parse(content);
+
+        if (!Array.isArray(data)) {
+          processedFiles.push({
+            file,
+            status: "pending" as const,
+          });
+          continue;
+        }
+
+        const entryCount = data.length;
+
+        // If file is small enough, add as-is
+        if (entryCount <= MAX_ENTRIES_PER_CHUNK) {
+          processedFiles.push({
+            file,
+            status: "pending" as const,
+          });
+          continue;
+        }
+
+        // File is too large, split it into chunks
+        const numChunks = Math.ceil(entryCount / MAX_ENTRIES_PER_CHUNK);
+        console.log(`Splitting ${file.name} (${entryCount} entries) into ${numChunks} chunks`);
+
+        for (let i = 0; i < numChunks; i++) {
+          const start = i * MAX_ENTRIES_PER_CHUNK;
+          const end = Math.min(start + MAX_ENTRIES_PER_CHUNK, entryCount);
+          const chunk = data.slice(start, end);
+
+          // Create a new File object for the chunk
+          const chunkBlob = new Blob([JSON.stringify(chunk)], { type: "application/json" });
+          const chunkFile = new File(
+            [chunkBlob],
+            `${file.name.replace('.json', '')}_chunk_${i + 1}_of_${numChunks}.json`,
+            { type: "application/json" }
+          );
+
+          processedFiles.push({
+            file: chunkFile,
+            status: "pending" as const,
+            isChunk: true,
+            chunkInfo: `Part ${i + 1}/${numChunks} (${chunk.length} entries)`,
+          });
+        }
+      } catch (error) {
+        console.error(`Error processing ${file.name}:`, error);
+        // If parsing fails, add the file anyway (API will handle the error)
+        processedFiles.push({
+          file,
+          status: "pending" as const,
+        });
+      }
+    }
+
+    return processedFiles;
+  }, []);
 
   // Import a single file
   const importSingleFile = useCallback(async (fileStatus: FileStatus) => {
@@ -115,14 +191,15 @@ export default function SettingsPage() {
       );
 
       if (droppedFiles.length > 0) {
-        const newFileStatuses: FileStatus[] = droppedFiles.map((file) => ({
-          file,
-          status: "pending" as const,
-        }));
-
-        setFiles((prev) => [...prev, ...newFileStatuses]);
+        setIsProcessingFiles(true);
         setOverallResult(null);
         setError(null);
+
+        // Process files (auto-split if needed)
+        const newFileStatuses = await processFiles(droppedFiles);
+
+        setFiles((prev) => [...prev, ...newFileStatuses]);
+        setIsProcessingFiles(false);
 
         // If individual mode, import each file immediately
         if (importMode === "individual") {
@@ -132,7 +209,7 @@ export default function SettingsPage() {
         }
       }
     },
-    [importMode, importSingleFile]
+    [importMode, importSingleFile, processFiles]
   );
 
   const handleFileSelect = useCallback(
@@ -142,14 +219,15 @@ export default function SettingsPage() {
       );
 
       if (selectedFiles.length > 0) {
-        const newFileStatuses: FileStatus[] = selectedFiles.map((file) => ({
-          file,
-          status: "pending" as const,
-        }));
-
-        setFiles((prev) => [...prev, ...newFileStatuses]);
+        setIsProcessingFiles(true);
         setOverallResult(null);
         setError(null);
+
+        // Process files (auto-split if needed)
+        const newFileStatuses = await processFiles(selectedFiles);
+
+        setFiles((prev) => [...prev, ...newFileStatuses]);
+        setIsProcessingFiles(false);
 
         // If individual mode, import each file immediately
         if (importMode === "individual") {
@@ -162,7 +240,7 @@ export default function SettingsPage() {
       // Reset input
       e.target.value = "";
     },
-    [importMode, importSingleFile]
+    [importMode, importSingleFile, processFiles]
   );
 
   const removeFile = useCallback((index: number) => {
@@ -327,8 +405,8 @@ export default function SettingsPage() {
                 <code className="bg-background px-1 rounded">endsong_*.json</code> files below
               </li>
             </ol>
-            <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-500">
-              ⚠️ <strong>Large files:</strong> If you have a very large file (&gt;5MB), consider splitting it or importing one file at a time to avoid timeouts.
+            <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-400">
+              ℹ️ <strong>Auto-split:</strong> Files with more than {MAX_ENTRIES_PER_CHUNK.toLocaleString()} entries are automatically split into smaller chunks to prevent timeouts. Each chunk is imported separately.
             </div>
           </div>
 
@@ -342,24 +420,38 @@ export default function SettingsPage() {
               isDragging
                 ? "border-spotify-green bg-spotify-green/5"
                 : "border-muted-foreground/25 hover:border-muted-foreground/50",
-              isImporting && "opacity-50 pointer-events-none"
+              (isImporting || isProcessingFiles) && "opacity-50 pointer-events-none"
             )}
           >
-            <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground mb-2">
-              Drag and drop JSON files here, or
-            </p>
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept=".json"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={isImporting}
-              />
-              <span className="text-spotify-green hover:underline">browse files</span>
-            </label>
+            {isProcessingFiles ? (
+              <>
+                <Loader2 className="h-10 w-10 mx-auto text-spotify-green mb-4 animate-spin" />
+                <p className="text-muted-foreground mb-2">
+                  Processing files and checking if splitting is needed...
+                </p>
+              </>
+            ) : (
+              <>
+                <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-2">
+                  Drag and drop JSON files here, or
+                </p>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".json"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    disabled={isImporting || isProcessingFiles}
+                  />
+                  <span className="text-spotify-green hover:underline">browse files</span>
+                </label>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Files with &gt;{MAX_ENTRIES_PER_CHUNK.toLocaleString()} entries will be automatically split
+                </p>
+              </>
+            )}
           </div>
 
           {/* Selected Files */}
@@ -400,7 +492,18 @@ export default function SettingsPage() {
                           <span className="text-xs text-muted-foreground flex-shrink-0">
                             ({(fileStatus.file.size / 1024 / 1024).toFixed(2)} MB)
                           </span>
+                          {fileStatus.isChunk && (
+                            <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded flex-shrink-0">
+                              Auto-split
+                            </span>
+                          )}
                         </div>
+
+                        {fileStatus.chunkInfo && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {fileStatus.chunkInfo}
+                          </div>
+                        )}
 
                         {fileStatus.status === "success" && fileStatus.result && (
                           <div className="text-xs text-green-400/80 mt-1">
