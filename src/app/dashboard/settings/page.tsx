@@ -310,45 +310,100 @@ export default function SettingsPage() {
     }
   }, []);
 
-  // Import from local folder
+  // Import from local folder (batched to avoid timeouts)
   const handleLocalImport = useCallback(async () => {
     setIsImportingLocal(true);
     setLocalImportResult(null);
 
+    let skip = 0;
+    let totalImported = 0;
+    let totalDuplicates = 0;
+    let totalFailed = 0;
+    let totalSkipped = 0;
+    const allErrors: string[] = [];
+    let batchNumber = 1;
+
     try {
-      const response = await fetch("/api/import/local", {
-        method: "POST",
+      // Keep calling the API until all entries are processed
+      while (true) {
+        console.log(`Processing batch ${batchNumber} (starting from entry ${skip})...`);
+
+        const response = await fetch(`/api/import/local?skip=${skip}`, {
+          method: "POST",
+        });
+
+        // Get the response text first so we can debug if JSON parsing fails
+        const responseText = await response.text();
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error("Failed to parse local import response as JSON:", parseError);
+          console.error("Response status:", response.status);
+          console.error("Response preview:", responseText.substring(0, 500));
+          throw new Error(`Server returned invalid response (${response.status}). Check console for details.`);
+        }
+
+        if (!response.ok) {
+          throw new Error(data.error || "Local import failed");
+        }
+
+        // Accumulate results
+        totalImported += data.imported;
+        totalDuplicates += data.duplicates;
+        totalFailed += data.failed;
+        totalSkipped += data.skipped;
+        allErrors.push(...(data.errors || []));
+
+        // Check if there are more entries to process
+        const hasMore = data.errors && data.errors.length > 0 &&
+          data.errors[0].includes("More entries available");
+
+        if (!hasMore) {
+          // All done!
+          console.log("Import complete!");
+          break;
+        }
+
+        // Update skip count for next batch (500 entries per batch)
+        skip += 500;
+        batchNumber++;
+
+        // Show progress
+        setLocalImportResult({
+          success: true,
+          imported: totalImported,
+          duplicates: totalDuplicates,
+          failed: totalFailed,
+          skipped: totalSkipped,
+          errors: [`Processing batch ${batchNumber}...`, ...allErrors.slice(0, 10)],
+          message: `Processing batch ${batchNumber}...`,
+        });
+      }
+
+      // Final result
+      setLocalImportResult({
+        success: true,
+        imported: totalImported,
+        duplicates: totalDuplicates,
+        failed: totalFailed,
+        skipped: totalSkipped,
+        errors: allErrors.slice(0, 100),
+        message: `Complete: ${totalImported} imported, ${totalDuplicates} duplicates`,
       });
 
-      // Get the response text first so we can debug if JSON parsing fails
-      const responseText = await response.text();
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Failed to parse local import response as JSON:", parseError);
-        console.error("Response status:", response.status);
-        console.error("Response preview:", responseText.substring(0, 500));
-        throw new Error(`Server returned invalid response (${response.status}). The import may have succeeded - check your dashboard. Check console for details.`);
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || "Local import failed");
-      }
-
-      setLocalImportResult(data);
       // Refresh the file list
       await loadLocalFiles();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Local import failed";
       setLocalImportResult({
         success: false,
-        imported: 0,
-        duplicates: 0,
-        failed: 0,
-        skipped: 0,
-        errors: [message],
+        imported: totalImported,
+        duplicates: totalDuplicates,
+        failed: totalFailed,
+        skipped: totalSkipped,
+        errors: [message, ...allErrors],
         message,
       });
     } finally {

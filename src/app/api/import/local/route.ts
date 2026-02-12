@@ -16,8 +16,14 @@ export async function POST(request: NextRequest) {
     console.log("[Local Import API] User authenticated:", session.user.id);
     const userId = session.user.id;
 
+    // Get skipCount from query params to support batched processing
+    const { searchParams } = new URL(request.url);
+    const skipCount = parseInt(searchParams.get('skip') || '0', 10);
+
+    console.log(`[Local Import API] Starting import from entry ${skipCount}`);
+
     // Import files from the import folder
-    const result = await importLocalFiles(userId);
+    const result = await importLocalFiles(userId, skipCount);
 
     return NextResponse.json(result);
   } catch (error) {

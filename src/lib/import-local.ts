@@ -7,11 +7,16 @@ import path from "path";
 // Minimum play duration to count (30 seconds in ms)
 const MIN_PLAY_DURATION_MS = 30000;
 
+// Maximum entries to process per request to avoid timeout (Cloudflare has ~100s timeout)
+// Processing ~500 entries takes about 30-60s, leaving plenty of margin
+const MAX_ENTRIES_PER_REQUEST = 500;
+
 /**
  * Import files from the local import folder without using Spotify API
  * Uses only data from the JSON files - no external API calls
+ * Processes up to MAX_ENTRIES_PER_REQUEST entries per call to avoid timeouts
  */
-export async function importLocalFiles(userId: string): Promise<ImportResult> {
+export async function importLocalFiles(userId: string, skipCount: number = 0): Promise<ImportResult> {
   const importDir = path.join(process.cwd(), 'import');
 
   // Check if import directory exists
@@ -40,6 +45,8 @@ export async function importLocalFiles(userId: string): Promise<ImportResult> {
   let totalFailed = 0;
   let totalSkipped = 0;
   const allErrors: string[] = [];
+  let totalProcessed = 0;
+  let entriesProcessedInThisRequest = 0;
 
   // Track unique artists, albums, and tracks to create them without API
   const artistsMap = new Map<string, { id: string; name: string }>();
@@ -62,8 +69,21 @@ export async function importLocalFiles(userId: string): Promise<ImportResult> {
         continue;
       }
 
-      // Process entries
+      // Process entries, starting from skipCount
       for (const entry of entries) {
+        // Skip entries until we reach our starting point
+        if (totalProcessed < skipCount) {
+          totalProcessed++;
+          continue;
+        }
+
+        // Stop if we've processed enough entries for this request
+        if (entriesProcessedInThisRequest >= MAX_ENTRIES_PER_REQUEST) {
+          break;
+        }
+        totalProcessed++;
+        entriesProcessedInThisRequest++;
+
         try {
           // Skip entries without track ID (can't import without Spotify API)
           if (!entry.trackId) {
@@ -167,13 +187,24 @@ export async function importLocalFiles(userId: string): Promise<ImportResult> {
       }
 
       console.log(`[Local Import] Completed ${fileName}`);
+
+      // Break out of file loop if we've processed enough
+      if (entriesProcessedInThisRequest >= MAX_ENTRIES_PER_REQUEST) {
+        console.log(`[Local Import] Reached max entries for this request (${MAX_ENTRIES_PER_REQUEST})`);
+        break;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       allErrors.push(`Failed to process ${fileName}: ${message}`);
     }
   }
 
-  console.log(`[Local Import] Complete: ${totalImported} imported, ${totalDuplicates} duplicates, ${totalFailed} failed, ${totalSkipped} skipped`);
+  const hasMore = entriesProcessedInThisRequest >= MAX_ENTRIES_PER_REQUEST;
+  const message = hasMore
+    ? `Processed ${entriesProcessedInThisRequest} entries. More entries available - call again to continue.`
+    : `Import complete: ${totalImported} imported, ${totalDuplicates} duplicates, ${totalFailed} failed, ${totalSkipped} skipped`;
+
+  console.log(`[Local Import] ${message}`);
 
   return {
     success: true,
@@ -181,6 +212,8 @@ export async function importLocalFiles(userId: string): Promise<ImportResult> {
     duplicates: totalDuplicates,
     failed: totalFailed,
     skipped: totalSkipped,
-    errors: allErrors.slice(0, 100),
+    errors: hasMore
+      ? [`${message}`, ...allErrors.slice(0, 50)]
+      : allErrors.slice(0, 100),
   };
 }
