@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getDateRangeFromSearchParams } from "@/lib/utils";
 
 // Genre mood mapping based on common genre keywords
 const MOOD_KEYWORDS: Record<string, string[]> = {
@@ -41,7 +42,7 @@ interface Insight {
   data?: Record<string, unknown>;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -50,15 +51,18 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+    const { searchParams } = new URL(request.url);
 
-    // Get plays from last 90 days for pattern analysis
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    // Get date range from search params
+    const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
     const plays = await prisma.play.findMany({
       where: {
         userId,
-        playedAt: { gte: ninetyDaysAgo },
+        playedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
       include: {
         track: true,

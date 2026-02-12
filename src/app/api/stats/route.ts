@@ -3,9 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
-  getStartOfToday,
-  getStartOfWeek,
-  getStartOfMonth,
+  getDateRangeFromSearchParams,
 } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -18,29 +16,18 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
-    const range = searchParams.get("range") || "week";
 
-    // Determine date range
-    let startDate: Date;
-    switch (range) {
-      case "today":
-        startDate = getStartOfToday();
-        break;
-      case "week":
-        startDate = getStartOfWeek();
-        break;
-      case "month":
-        startDate = getStartOfMonth();
-        break;
-      default:
-        startDate = new Date(0);
-    }
+    // Get date range from search params
+    const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
     // Get plays within range
     const plays = await prisma.play.findMany({
       where: {
         userId,
-        playedAt: { gte: startDate },
+        playedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
       include: {
         track: true,

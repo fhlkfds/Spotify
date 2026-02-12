@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { StatCard } from "@/components/stats/stat-card";
 import { formatListeningTime } from "@/lib/utils";
 import { Flame, Heart, Music, Users, TrendingUp, Clock, Zap } from "lucide-react";
@@ -106,6 +108,7 @@ function IntensityMeter({ intensity }: { intensity: number }) {
 }
 
 export default function ObsessedPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<ObsessedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(180);
@@ -114,7 +117,9 @@ export default function ObsessedPage() {
     async function fetchObsessed() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/stats/obsessed?days=${days}`);
+        const params = new URLSearchParams(searchParams);
+        params.set("days", days.toString());
+        const res = await fetch(`/api/stats/obsessed?${params}`);
         if (res.ok) {
           const obsessedData = await res.json();
           setData(obsessedData);
@@ -127,7 +132,7 @@ export default function ObsessedPage() {
     }
 
     fetchObsessed();
-  }, [days]);
+  }, [days, searchParams]);
 
   if (loading) {
     return (
@@ -190,6 +195,9 @@ export default function ObsessedPage() {
           ))}
         </div>
       </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

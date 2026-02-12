@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { formatListeningTime, formatDate } from "@/lib/utils";
 
 interface Artist {
@@ -17,13 +19,15 @@ interface Artist {
 }
 
 export default function ArtistsPage() {
+  const searchParams = useSearchParams();
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchArtists() {
       try {
-        const res = await fetch("/api/stats/artists");
+        const params = new URLSearchParams(searchParams);
+        const res = await fetch(`/api/stats/artists?${params}`);
         if (res.ok) {
           const data = await res.json();
           setArtists(data.artists);
@@ -36,7 +40,7 @@ export default function ArtistsPage() {
     }
 
     fetchArtists();
-  }, []);
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -59,6 +63,9 @@ export default function ArtistsPage() {
           {artists.length} artists in your library
         </p>
       </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {artists.length === 0 ? (
         <Card className="glass">

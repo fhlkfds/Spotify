@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { ListeningChart } from "@/components/charts/listening-chart";
 import { HourlyChart } from "@/components/charts/hourly-chart";
 import { Heatmap } from "@/components/charts/heatmap";
@@ -18,13 +20,16 @@ interface TrendsData {
 }
 
 export default function TrendsPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<TrendsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchTrends() {
       try {
-        const res = await fetch("/api/stats/trends?days=90");
+        const params = new URLSearchParams(searchParams);
+        params.set("days", "90");
+        const res = await fetch(`/api/stats/trends?${params}`);
         if (res.ok) {
           const trendsData = await res.json();
           setData(trendsData);
@@ -37,7 +42,7 @@ export default function TrendsPage() {
     }
 
     fetchTrends();
-  }, []);
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -71,7 +76,15 @@ export default function TrendsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Listening Trends</h1>
+      <div>
+        <h1 className="text-3xl font-bold">Listening Trends</h1>
+        <p className="text-muted-foreground mt-1">
+          Analyze your listening patterns over time
+        </p>
+      </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

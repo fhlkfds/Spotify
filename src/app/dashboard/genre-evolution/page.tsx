@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { GenreEvolutionChart } from "@/components/charts/genre-evolution-chart";
 import { StatCard } from "@/components/stats/stat-card";
 import { TrendingUp, TrendingDown, Sparkles, History, ArrowUp, ArrowDown } from "lucide-react";
@@ -33,6 +35,7 @@ interface GenreEvolutionData {
 }
 
 export default function GenreEvolutionPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<GenreEvolutionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [months, setMonths] = useState(12);
@@ -41,7 +44,9 @@ export default function GenreEvolutionPage() {
     async function fetchData() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/stats/genre-evolution?months=${months}`);
+        const params = new URLSearchParams(searchParams);
+        params.set("months", months.toString());
+        const res = await fetch(`/api/stats/genre-evolution?${params}`);
         if (res.ok) {
           const evolutionData = await res.json();
           setData(evolutionData);
@@ -54,7 +59,7 @@ export default function GenreEvolutionPage() {
     }
 
     fetchData();
-  }, [months]);
+  }, [months, searchParams]);
 
   if (loading) {
     return (
@@ -110,6 +115,9 @@ export default function GenreEvolutionPage() {
           ))}
         </div>
       </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

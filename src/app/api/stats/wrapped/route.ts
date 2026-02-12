@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getDateRangeFromSearchParams } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,42 +14,13 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
-
-    // Support different period types
-    const periodType = searchParams.get("period") || "month"; // month, year, custom
-    const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString());
-    const month = parseInt(searchParams.get("month") || (new Date().getMonth() + 1).toString());
-
-    let startDate: Date;
-    let endDate: Date;
-    let periodLabel: string;
-
-    if (periodType === "year") {
-      startDate = new Date(year, 0, 1);
-      endDate = new Date(year + 1, 0, 1);
-      periodLabel = `${year}`;
-    } else if (periodType === "month") {
-      startDate = new Date(year, month - 1, 1);
-      endDate = new Date(year, month, 1);
-      const monthName = startDate.toLocaleDateString("en-US", { month: "long" });
-      periodLabel = `${monthName} ${year}`;
-    } else {
-      // Custom range
-      const customStart = searchParams.get("start");
-      const customEnd = searchParams.get("end");
-      startDate = customStart ? new Date(customStart) : new Date();
-      endDate = customEnd ? new Date(customEnd) : new Date();
-      periodLabel = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-    }
+    const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
     // Get all plays within the period
     const plays = await prisma.play.findMany({
       where: {
         userId,
-        playedAt: {
-          gte: startDate,
-          lt: endDate,
-        },
+        playedAt: { gte: startDate, lte: endDate },
       },
       include: {
         track: true,
@@ -60,8 +32,6 @@ export async function GET(request: NextRequest) {
 
     if (plays.length === 0) {
       return NextResponse.json({
-        period: periodLabel,
-        periodType,
         hasData: false,
         stats: null,
       });
@@ -210,8 +180,6 @@ export async function GET(request: NextRequest) {
     funFacts.push(`That's about ${avgMinutesPerDay} minutes per day`);
 
     return NextResponse.json({
-      period: periodLabel,
-      periodType,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       hasData: true,

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { InsightCard, MoodBadge } from "@/components/insights/insight-card";
 import { StatCard } from "@/components/stats/stat-card";
 import { Brain, Lightbulb, Clock, Calendar } from "lucide-react";
@@ -33,13 +35,15 @@ interface InsightsData {
 }
 
 export default function InsightsPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchInsights() {
       try {
-        const res = await fetch("/api/stats/insights");
+        const params = new URLSearchParams(searchParams);
+        const res = await fetch(`/api/stats/insights?${params}`);
         if (res.ok) {
           const insightsData = await res.json();
           setData(insightsData);
@@ -52,7 +56,7 @@ export default function InsightsPage() {
     }
 
     fetchInsights();
-  }, []);
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -98,6 +102,9 @@ export default function InsightsPage() {
           AI-powered analysis of your listening patterns and habits
         </p>
       </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {/* Quick Stats */}
       {data.patterns && (

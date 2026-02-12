@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { GenreBarChart } from "@/components/charts/genre-bar-chart";
 import { GenrePieChart } from "@/components/charts/genre-pie-chart";
 import { StatCard } from "@/components/stats/stat-card";
@@ -29,13 +31,15 @@ interface GenresData {
 }
 
 export default function GenresPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<GenresData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchGenres() {
       try {
-        const res = await fetch("/api/stats/genres");
+        const params = new URLSearchParams(searchParams);
+        const res = await fetch(`/api/stats/genres?${params}`);
         if (res.ok) {
           const genresData = await res.json();
           setData(genresData);
@@ -48,7 +52,7 @@ export default function GenresPage() {
     }
 
     fetchGenres();
-  }, []);
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -84,7 +88,15 @@ export default function GenresPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Genre Analytics</h1>
+      <div>
+        <h1 className="text-3xl font-bold">Genre Analytics</h1>
+        <p className="text-muted-foreground mt-1">
+          Explore your music taste across genres
+        </p>
+      </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

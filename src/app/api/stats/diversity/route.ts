@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getDateRangeFromSearchParams } from "@/lib/utils";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -12,10 +13,15 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+    const { searchParams } = new URL(request.url);
+    const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
     // Get all plays with artist data
     const plays = await prisma.play.findMany({
-      where: { userId },
+      where: {
+        userId,
+        playedAt: { gte: startDate, lte: endDate },
+      },
       include: {
         track: true,
         artist: true,

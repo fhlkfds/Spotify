@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getDateRangeFromSearchParams } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,11 +15,16 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const artistId = searchParams.get("artistId");
+    const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
     if (artistId) {
       // Get detailed stats for a specific artist
       const plays = await prisma.play.findMany({
-        where: { userId, artistId },
+        where: {
+          userId,
+          artistId,
+          playedAt: { gte: startDate, lte: endDate },
+        },
         include: { track: true, album: true },
         orderBy: { playedAt: "desc" },
       });
@@ -156,7 +162,10 @@ export async function GET(request: NextRequest) {
 
     // Get all artists with stats
     const plays = await prisma.play.findMany({
-      where: { userId },
+      where: {
+        userId,
+        playedAt: { gte: startDate, lte: endDate },
+      },
       include: { track: true, artist: true },
     });
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getDateRangeFromSearchParams } from "@/lib/utils";
 
 interface ObsessionPeriod {
   startDate: string;
@@ -44,16 +45,18 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
-    const days = parseInt(searchParams.get("days") || "180");
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    // Get date range from search params
+    const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
     // Get all plays within range
     const plays = await prisma.play.findMany({
       where: {
         userId,
-        playedAt: { gte: startDate },
+        playedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
       include: {
         track: true,

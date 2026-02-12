@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { formatListeningTime, formatDate } from "@/lib/utils";
 
 interface Album {
@@ -21,13 +23,15 @@ interface Album {
 }
 
 export default function AlbumsPage() {
+  const searchParams = useSearchParams();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchAlbums() {
       try {
-        const res = await fetch("/api/stats/albums");
+        const params = new URLSearchParams(searchParams);
+        const res = await fetch(`/api/stats/albums?${params}`);
         if (res.ok) {
           const data = await res.json();
           setAlbums(data.albums);
@@ -40,7 +44,7 @@ export default function AlbumsPage() {
     }
 
     fetchAlbums();
-  }, []);
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -63,6 +67,9 @@ export default function AlbumsPage() {
           {albums.length} albums in your library
         </p>
       </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {albums.length === 0 ? (
         <Card className="glass">

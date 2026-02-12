@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getStartOfMonth } from "@/lib/utils";
+import { getDateRangeFromSearchParams } from "@/lib/utils";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -13,13 +13,14 @@ export async function GET() {
     }
 
     const userId = session.user.id;
-    const startOfMonth = getStartOfMonth();
+    const { searchParams } = new URL(request.url);
+    const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
-    // Find all artists the user has ever listened to before this month
-    const artistsBeforeThisMonth = await prisma.play.findMany({
+    // Find all artists the user has ever listened to before this period
+    const artistsBeforePeriod = await prisma.play.findMany({
       where: {
         userId,
-        playedAt: { lt: startOfMonth },
+        playedAt: { lt: startDate },
       },
       select: {
         artistId: true,
@@ -27,13 +28,13 @@ export async function GET() {
       distinct: ["artistId"],
     });
 
-    const existingArtistIds = new Set(artistsBeforeThisMonth.map((p) => p.artistId));
+    const existingArtistIds = new Set(artistsBeforePeriod.map((p) => p.artistId));
 
-    // Get all plays from this month
-    const playsThisMonth = await prisma.play.findMany({
+    // Get all plays from this period
+    const playsThisPeriod = await prisma.play.findMany({
       where: {
         userId,
-        playedAt: { gte: startOfMonth },
+        playedAt: { gte: startDate, lte: endDate },
       },
       include: {
         track: true,
@@ -46,14 +47,14 @@ export async function GET() {
     const newArtistPlays: Record<
       string,
       {
-        artist: typeof playsThisMonth[0]["artist"];
+        artist: typeof playsThisPeriod[0]["artist"];
         count: number;
         totalMs: number;
         firstPlayedAt: Date;
       }
     > = {};
 
-    for (const play of playsThisMonth) {
+    for (const play of playsThisPeriod) {
       // Skip if user listened to this artist before this month
       if (existingArtistIds.has(play.artistId)) {
         continue;

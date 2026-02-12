@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import {
   WrappedCard,
   TopItemCard,
@@ -76,6 +78,7 @@ interface WrappedData {
 }
 
 export default function WrappedPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<WrappedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [periodType, setPeriodType] = useState<"month" | "year">("month");
@@ -87,11 +90,10 @@ export default function WrappedPage() {
   const fetchWrapped = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        period: periodType,
-        year: selectedYear.toString(),
-        month: selectedMonth.toString(),
-      });
+      const params = new URLSearchParams(searchParams);
+      params.set("period", periodType);
+      params.set("year", selectedYear.toString());
+      params.set("month", selectedMonth.toString());
       const res = await fetch(`/api/stats/wrapped?${params}`);
       if (res.ok) {
         const wrappedData = await res.json();
@@ -106,7 +108,7 @@ export default function WrappedPage() {
 
   useEffect(() => {
     fetchWrapped();
-  }, [periodType, selectedYear, selectedMonth]);
+  }, [periodType, selectedYear, selectedMonth, searchParams]);
 
   const handlePrevPeriod = () => {
     if (periodType === "month") {
@@ -229,6 +231,9 @@ export default function WrappedPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {!data?.hasData ? (
         <Card className="glass">

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { DiversityGauge, DiversityRadial } from "@/components/charts/diversity-gauge";
 import { DiversityTrendChart } from "@/components/charts/diversity-trend-chart";
 import { StatCard } from "@/components/stats/stat-card";
@@ -49,13 +51,15 @@ interface DiversityData {
 }
 
 export default function DiversityPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<DiversityData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchDiversity() {
       try {
-        const res = await fetch("/api/stats/diversity");
+        const params = new URLSearchParams(searchParams);
+        const res = await fetch(`/api/stats/diversity?${params}`);
         if (res.ok) {
           const diversityData = await res.json();
           setData(diversityData);
@@ -68,7 +72,7 @@ export default function DiversityPage() {
     }
 
     fetchDiversity();
-  }, []);
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -118,6 +122,9 @@ export default function DiversityPage() {
           Discover how varied your music taste is across genres and artists
         </p>
       </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {/* Main Score Display */}
       <div className="grid gap-6 lg:grid-cols-3">

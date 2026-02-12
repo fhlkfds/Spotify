@@ -99,6 +99,95 @@ export function getTimeRanges() {
 }
 
 /**
+ * Parse date range from URL search params
+ * Supports both preset ranges and custom startDate/endDate
+ */
+export function getDateRangeFromSearchParams(searchParams: URLSearchParams): {
+  startDate: Date;
+  endDate: Date;
+} {
+  const startDateStr = searchParams.get("startDate");
+  const endDateStr = searchParams.get("endDate");
+  const range = searchParams.get("range");
+
+  // If explicit dates are provided, use them
+  if (startDateStr && endDateStr) {
+    return {
+      startDate: new Date(startDateStr),
+      endDate: new Date(endDateStr),
+    };
+  }
+
+  // Otherwise use preset range
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (range) {
+    case "today": {
+      return {
+        startDate: today,
+        endDate: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1),
+      };
+    }
+
+    case "yesterday": {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        startDate: yesterday,
+        endDate: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1),
+      };
+    }
+
+    case "week": {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return {
+        startDate: weekAgo,
+        endDate: now,
+      };
+    }
+
+    case "month": {
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      return {
+        startDate: monthAgo,
+        endDate: now,
+      };
+    }
+
+    case "year": {
+      const yearAgo = new Date(today);
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      return {
+        startDate: yearAgo,
+        endDate: now,
+      };
+    }
+
+    case "last-year": {
+      const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
+      const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+      return {
+        startDate: lastYearStart,
+        endDate: lastYearEnd,
+      };
+    }
+
+    default: {
+      // Default to last year
+      const yearAgo = new Date(today);
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      return {
+        startDate: yearAgo,
+        endDate: now,
+      };
+    }
+  }
+}
+
+/**
  * Format a date for display
  */
 export function formatDate(date: Date): string {
