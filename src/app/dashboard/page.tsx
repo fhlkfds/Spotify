@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/stats/stat-card";
 import { TopArtists } from "@/components/stats/top-artists";
 import { TopTracks } from "@/components/stats/top-tracks";
@@ -12,7 +10,6 @@ import { RecentPlays } from "@/components/stats/recent-plays";
 import { Heatmap } from "@/components/charts/heatmap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { formatListeningTime } from "@/lib/utils";
 import { Clock, Music, Users, Disc3, Flame } from "lucide-react";
 import { NowPlaying } from "@/components/now-playing";
@@ -46,8 +43,6 @@ interface NewArtistsData {
 }
 
 export default function DashboardPage() {
-  const searchParams = useSearchParams();
-  const [range, setRange] = useState<"today" | "week" | "month" | "all">("week");
   const [data, setData] = useState<DashboardData | null>(null);
   const [trends, setTrends] = useState<TrendsData | null>(null);
   const [genres, setGenres] = useState<GenresData | null>(null);
@@ -59,10 +54,10 @@ export default function DashboardPage() {
       setLoading(true);
       try {
         const [statsRes, trendsRes, genresRes, newArtistsRes] = await Promise.all([
-          fetch(`/api/stats?range=${range}&${searchParams}`),
-          fetch(`/api/stats/trends?days=365&${searchParams}`),
-          fetch(`/api/stats/genres?${searchParams}`),
-          fetch(`/api/stats/new-artists?${searchParams}`),
+          fetch(`/api/stats?range=all`),
+          fetch(`/api/stats/trends?days=365`),
+          fetch(`/api/stats/genres`),
+          fetch(`/api/stats/new-artists`),
         ]);
 
         if (statsRes.ok) {
@@ -92,7 +87,7 @@ export default function DashboardPage() {
     }
 
     fetchData();
-  }, [range, searchParams]);
+  }, []);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -101,21 +96,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Now Playing */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <NowPlaying />
-        </div>
-        <div className="flex items-center">
-          <Tabs value={range} onValueChange={(v) => setRange(v as typeof range)} className="w-full">
-            <TabsList className="w-full">
-              <TabsTrigger value="today" className="flex-1">Today</TabsTrigger>
-              <TabsTrigger value="week" className="flex-1">Week</TabsTrigger>
-              <TabsTrigger value="month" className="flex-1">Month</TabsTrigger>
-              <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
+      <NowPlaying />
 
       {/* Header */}
       <div>
@@ -124,9 +105,6 @@ export default function DashboardPage() {
           Your music listening overview
         </p>
       </div>
-
-      {/* Date Range Filter */}
-      <DateRangeFilter />
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
