@@ -100,7 +100,7 @@ export function getTimeRanges() {
 
 /**
  * Parse date range from URL search params
- * Supports both preset ranges and custom startDate/endDate
+ * Supports preset ranges: today, week, month, all
  */
 export function getDateRangeFromSearchParams(searchParams: URLSearchParams): {
   startDate: Date;
@@ -130,15 +130,6 @@ export function getDateRangeFromSearchParams(searchParams: URLSearchParams): {
       };
     }
 
-    case "yesterday": {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      return {
-        startDate: yesterday,
-        endDate: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1),
-      };
-    }
-
     case "week": {
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -157,30 +148,11 @@ export function getDateRangeFromSearchParams(searchParams: URLSearchParams): {
       };
     }
 
-    case "year": {
-      const yearAgo = new Date(today);
-      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-      return {
-        startDate: yearAgo,
-        endDate: now,
-      };
-    }
-
-    case "last-year": {
-      const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
-      const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
-      return {
-        startDate: lastYearStart,
-        endDate: lastYearEnd,
-      };
-    }
-
+    case "all":
     default: {
-      // Default to last year
-      const yearAgo = new Date(today);
-      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      // Default to all time
       return {
-        startDate: yearAgo,
+        startDate: new Date(2000, 0, 1),
         endDate: now,
       };
     }

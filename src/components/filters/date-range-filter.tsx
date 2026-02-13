@@ -2,18 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type DateRangePreset =
   | "today"
-  | "yesterday"
   | "week"
   | "month"
-  | "year"
-  | "last-year"
-  | "custom";
+  | "all";
 
 interface DateRange {
   startDate: Date;
@@ -37,14 +33,6 @@ function getDateRangeFromPreset(preset: DateRangePreset): { startDate: Date; end
         endDate: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1),
       };
 
-    case "yesterday":
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      return {
-        startDate: yesterday,
-        endDate: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1),
-      };
-
     case "week":
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -61,31 +49,13 @@ function getDateRangeFromPreset(preset: DateRangePreset): { startDate: Date; end
         endDate: now,
       };
 
-    case "year":
-      const yearAgo = new Date(today);
-      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+    case "all":
+    default:
+      // Return a very old date to capture all data
       return {
-        startDate: yearAgo,
+        startDate: new Date(2000, 0, 1),
         endDate: now,
       };
-
-    case "last-year":
-      const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
-      const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
-      return {
-        startDate: lastYearStart,
-        endDate: lastYearEnd,
-      };
-
-    default: {
-      // Default to last year
-      const defaultYearAgo = new Date(today);
-      defaultYearAgo.setFullYear(defaultYearAgo.getFullYear() - 1);
-      return {
-        startDate: defaultYearAgo,
-        endDate: now,
-      };
-    }
   }
 }
 
@@ -93,37 +63,20 @@ export function DateRangeFilter({ onChange, className }: DateRangeFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [preset, setPreset] = useState<DateRangePreset>("year");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
-  const [showCustom, setShowCustom] = useState(false);
+  const [preset, setPreset] = useState<DateRangePreset>("all");
 
   // Initialize from URL params
   useEffect(() => {
     const urlPreset = searchParams.get("range") as DateRangePreset;
-    const urlStart = searchParams.get("startDate");
-    const urlEnd = searchParams.get("endDate");
 
-    if (urlPreset && urlPreset !== "custom") {
+    if (urlPreset && ["today", "week", "month", "all"].includes(urlPreset)) {
       setPreset(urlPreset);
-      setShowCustom(false);
-    } else if (urlStart && urlEnd) {
-      setPreset("custom");
-      setCustomStart(urlStart);
-      setCustomEnd(urlEnd);
-      setShowCustom(true);
     }
   }, [searchParams]);
 
   const handlePresetChange = (newPreset: DateRangePreset) => {
     setPreset(newPreset);
 
-    if (newPreset === "custom") {
-      setShowCustom(true);
-      return;
-    }
-
-    setShowCustom(false);
     const { startDate, endDate } = getDateRangeFromPreset(newPreset);
 
     // Update URL params
@@ -137,116 +90,40 @@ export function DateRangeFilter({ onChange, className }: DateRangeFilterProps) {
     onChange?.({ startDate, endDate, preset: newPreset });
   };
 
-  const handleCustomApply = () => {
-    if (!customStart || !customEnd) return;
-
-    const startDate = new Date(customStart);
-    const endDate = new Date(customEnd);
-    endDate.setHours(23, 59, 59, 999);
-
-    // Update URL params
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("range", "custom");
-    params.set("startDate", startDate.toISOString());
-    params.set("endDate", endDate.toISOString());
-    router.push(`?${params.toString()}`, { scroll: false });
-
-    // Call onChange callback
-    onChange?.({ startDate, endDate, preset: "custom" });
-  };
-
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={preset === "today" ? "default" : "outline"}
-          size="sm"
-          onClick={() => handlePresetChange("today")}
-          className={preset === "today" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
-        >
-          Today
-        </Button>
-        <Button
-          variant={preset === "yesterday" ? "default" : "outline"}
-          size="sm"
-          onClick={() => handlePresetChange("yesterday")}
-          className={preset === "yesterday" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
-        >
-          Yesterday
-        </Button>
-        <Button
-          variant={preset === "week" ? "default" : "outline"}
-          size="sm"
-          onClick={() => handlePresetChange("week")}
-          className={preset === "week" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
-        >
-          This Week
-        </Button>
-        <Button
-          variant={preset === "month" ? "default" : "outline"}
-          size="sm"
-          onClick={() => handlePresetChange("month")}
-          className={preset === "month" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
-        >
-          This Month
-        </Button>
-        <Button
-          variant={preset === "year" ? "default" : "outline"}
-          size="sm"
-          onClick={() => handlePresetChange("year")}
-          className={preset === "year" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
-        >
-          This Year
-        </Button>
-        <Button
-          variant={preset === "last-year" ? "default" : "outline"}
-          size="sm"
-          onClick={() => handlePresetChange("last-year")}
-          className={preset === "last-year" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
-        >
-          Last Year
-        </Button>
-        <Button
-          variant={preset === "custom" ? "default" : "outline"}
-          size="sm"
-          onClick={() => handlePresetChange("custom")}
-          className={preset === "custom" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
-        >
-          <Calendar className="h-4 w-4 mr-1" />
-          Custom
-        </Button>
-      </div>
-
-      {showCustom && (
-        <div className="flex flex-wrap gap-2 items-end p-3 bg-muted/30 rounded-lg">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">Start Date</label>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-md border border-input bg-background"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">End Date</label>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-md border border-input bg-background"
-            />
-          </div>
-          <Button
-            size="sm"
-            onClick={handleCustomApply}
-            disabled={!customStart || !customEnd}
-            className="bg-spotify-green hover:bg-spotify-green/90"
-          >
-            Apply
-          </Button>
-        </div>
-      )}
+    <div className={cn("flex flex-wrap gap-2", className)}>
+      <Button
+        variant={preset === "today" ? "default" : "outline"}
+        size="sm"
+        onClick={() => handlePresetChange("today")}
+        className={preset === "today" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
+      >
+        Today
+      </Button>
+      <Button
+        variant={preset === "week" ? "default" : "outline"}
+        size="sm"
+        onClick={() => handlePresetChange("week")}
+        className={preset === "week" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
+      >
+        Week
+      </Button>
+      <Button
+        variant={preset === "month" ? "default" : "outline"}
+        size="sm"
+        onClick={() => handlePresetChange("month")}
+        className={preset === "month" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
+      >
+        Month
+      </Button>
+      <Button
+        variant={preset === "all" ? "default" : "outline"}
+        size="sm"
+        onClick={() => handlePresetChange("all")}
+        className={preset === "all" ? "bg-spotify-green hover:bg-spotify-green/90" : ""}
+      >
+        All
+      </Button>
     </div>
   );
 }
@@ -264,10 +141,10 @@ export function getDateRangeFromParams(searchParams: URLSearchParams): { startDa
     };
   }
 
-  if (preset && preset !== "custom") {
+  if (preset && ["today", "week", "month", "all"].includes(preset)) {
     return getDateRangeFromPreset(preset);
   }
 
-  // Default to last year
-  return getDateRangeFromPreset("year");
+  // Default to all time
+  return getDateRangeFromPreset("all");
 }
