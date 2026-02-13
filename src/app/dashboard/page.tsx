@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { StatCard } from "@/components/stats/stat-card";
 import { TopArtists } from "@/components/stats/top-artists";
 import { TopTracks } from "@/components/stats/top-tracks";
@@ -10,6 +11,7 @@ import { RecentPlays } from "@/components/stats/recent-plays";
 import { Heatmap } from "@/components/charts/heatmap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { formatListeningTime } from "@/lib/utils";
 import { Clock, Music, Users, Disc3, Flame } from "lucide-react";
 import { NowPlaying } from "@/components/now-playing";
@@ -43,6 +45,7 @@ interface NewArtistsData {
 }
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<DashboardData | null>(null);
   const [trends, setTrends] = useState<TrendsData | null>(null);
   const [genres, setGenres] = useState<GenresData | null>(null);
@@ -53,11 +56,14 @@ export default function DashboardPage() {
     async function fetchData() {
       setLoading(true);
       try {
+        const params = searchParams.toString();
+        const queryString = params ? `?${params}` : "";
+
         const [statsRes, trendsRes, genresRes, newArtistsRes] = await Promise.all([
-          fetch(`/api/stats?range=all`),
-          fetch(`/api/stats/trends?days=365`),
-          fetch(`/api/stats/genres`),
-          fetch(`/api/stats/new-artists`),
+          fetch(`/api/stats${queryString}`),
+          fetch(`/api/stats/trends?days=365${params ? `&${params}` : ""}`),
+          fetch(`/api/stats/genres${queryString}`),
+          fetch(`/api/stats/new-artists${queryString}`),
         ]);
 
         if (statsRes.ok) {
@@ -87,7 +93,7 @@ export default function DashboardPage() {
     }
 
     fetchData();
-  }, []);
+  }, [searchParams]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -105,6 +111,9 @@ export default function DashboardPage() {
           Your music listening overview
         </p>
       </div>
+
+      {/* Date Range Filter */}
+      <DateRangeFilter />
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">

@@ -100,7 +100,7 @@ export function getTimeRanges() {
 
 /**
  * Parse date range from URL search params
- * Supports preset ranges: today, week, month, all
+ * Supports preset ranges: today, week, month, year, all, custom
  */
 export function getDateRangeFromSearchParams(searchParams: URLSearchParams): {
   startDate: Date;
@@ -144,6 +144,14 @@ export function getDateRangeFromSearchParams(searchParams: URLSearchParams): {
       monthAgo.setMonth(monthAgo.getMonth() - 1);
       return {
         startDate: monthAgo,
+        endDate: now,
+      };
+    }
+
+    case "year": {
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+      return {
+        startDate: yearStart,
         endDate: now,
       };
     }
