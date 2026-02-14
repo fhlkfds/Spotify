@@ -39,14 +39,14 @@ export async function deduplicateArtistsAndAlbums(): Promise<DeduplicationResult
     }
 
     // Merge duplicate artists
-    for (const [name, artists] of artistsByName.entries()) {
+    for (const [name, artists] of Array.from(artistsByName.entries())) {
       if (artists.length <= 1) continue;
 
       console.log(`[Deduplicate] Found ${artists.length} duplicates for "${artists[0].name}"`);
 
       // Keep the one with an image, or the first one
-      const primary = artists.find((a) => a.imageUrl) || artists[0];
-      const duplicates = artists.filter((a) => a.id !== primary.id);
+      const primary = artists.find((artist) => artist.imageUrl) || artists[0];
+      const duplicates = artists.filter((artist) => artist.id !== primary.id);
 
       for (const duplicate of duplicates) {
         try {
@@ -102,14 +102,14 @@ export async function deduplicateArtistsAndAlbums(): Promise<DeduplicationResult
     }
 
     // Merge duplicate albums
-    for (const [key, albums] of albumsByKey.entries()) {
+    for (const [key, albums] of Array.from(albumsByKey.entries())) {
       if (albums.length <= 1) continue;
 
       console.log(`[Deduplicate] Found ${albums.length} duplicates for album "${albums[0].name}"`);
 
       // Keep the one with an image, or the first one
-      const primary = albums.find((a) => a.imageUrl) || albums[0];
-      const duplicates = albums.filter((a) => a.id !== primary.id);
+      const primary = albums.find((album) => album.imageUrl) || albums[0];
+      const duplicates = albums.filter((album) => album.id !== primary.id);
 
       for (const duplicate of duplicates) {
         try {

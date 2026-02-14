@@ -81,7 +81,6 @@ export async function fetchMissingImages(
               where: { id: artist.id },
               data: {
                 imageUrl,
-                spotifyId: artistData.id,
               },
             });
 
