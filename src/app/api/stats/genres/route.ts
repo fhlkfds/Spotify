@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getDateRangeFromSearchParams } from "@/lib/utils";
 
+const CACHE_HEADERS = {
+  "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
+};
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,17 +20,38 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
-    // Get all plays with artist data
+    // Load only required fields for genre aggregation.
     const plays = await prisma.play.findMany({
       where: {
         userId,
         playedAt: { gte: startDate, lte: endDate },
       },
-      include: {
-        track: true,
-        artist: true,
+      select: {
+        artistId: true,
+        track: { select: { durationMs: true } },
       },
     });
+
+    const uniqueArtistIds = Array.from(new Set(plays.map((play) => play.artistId)));
+    const artists = uniqueArtistIds.length
+      ? await prisma.artist.findMany({
+          where: { id: { in: uniqueArtistIds } },
+          select: { id: true, genres: true },
+        })
+      : [];
+
+    const artistGenres = new Map<string, string[]>();
+    for (const artist of artists) {
+      if (!artist.genres) {
+        continue;
+      }
+      try {
+        const parsedGenres = JSON.parse(artist.genres) as string[];
+        artistGenres.set(artist.id, parsedGenres);
+      } catch {
+        // Invalid JSON, skip
+      }
+    }
 
     // Build genre statistics
     const genreData: Record<
@@ -39,24 +64,21 @@ export async function GET(request: NextRequest) {
     > = {};
 
     for (const play of plays) {
-      if (play.artist.genres) {
-        try {
-          const genres = JSON.parse(play.artist.genres) as string[];
-          for (const genre of genres) {
-            if (!genreData[genre]) {
-              genreData[genre] = {
-                playCount: 0,
-                totalMs: 0,
-                artistIds: new Set(),
-              };
-            }
-            genreData[genre].playCount++;
-            genreData[genre].totalMs += play.track.durationMs;
-            genreData[genre].artistIds.add(play.artistId);
-          }
-        } catch {
-          // Invalid JSON, skip
+      const genres = artistGenres.get(play.artistId);
+      if (!genres) {
+        continue;
+      }
+      for (const genre of genres) {
+        if (!genreData[genre]) {
+          genreData[genre] = {
+            playCount: 0,
+            totalMs: 0,
+            artistIds: new Set(),
+          };
         }
+        genreData[genre].playCount++;
+        genreData[genre].totalMs += play.track.durationMs;
+        genreData[genre].artistIds.add(play.artistId);
       }
     }
 
@@ -98,7 +120,7 @@ export async function GET(request: NextRequest) {
         diversityScore,
         totalListeningMs,
       },
-    });
+    }, { headers: CACHE_HEADERS });
   } catch (error) {
     console.error("Genres API error:", error);
     return NextResponse.json(

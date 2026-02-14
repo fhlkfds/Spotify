@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getDateRangeFromSearchParams } from "@/lib/utils";
 
+const CACHE_HEADERS = {
+  "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
+};
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,69 +20,75 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const { startDate, endDate } = getDateRangeFromSearchParams(searchParams);
 
-    // Get all plays within range
-    const plays = await prisma.play.findMany({
-      where: {
-        userId,
-        playedAt: { gte: startDate, lte: endDate },
-      },
-      include: { track: true },
-      orderBy: { playedAt: "asc" },
-    });
+    const [dailyRows, hourlyRows] = await Promise.all([
+      prisma.$queryRaw<
+        Array<{ date: string; total_ms: number; play_count: number }>
+      >`
+        SELECT
+          DATE("Play"."playedAt") AS date,
+          COALESCE(SUM("Track"."durationMs"), 0) AS total_ms,
+          COUNT(*) AS play_count
+        FROM "Play"
+        INNER JOIN "Track" ON "Track"."id" = "Play"."trackId"
+        WHERE
+          "Play"."userId" = ${userId}
+          AND "Play"."playedAt" >= ${startDate}
+          AND "Play"."playedAt" <= ${endDate}
+        GROUP BY DATE("Play"."playedAt")
+        ORDER BY date ASC
+      `,
+      prisma.$queryRaw<
+        Array<{ hour: number; total_ms: number; play_count: number }>
+      >`
+        SELECT
+          CAST(STRFTIME('%H', "Play"."playedAt") AS INTEGER) AS hour,
+          COALESCE(SUM("Track"."durationMs"), 0) AS total_ms,
+          COUNT(*) AS play_count
+        FROM "Play"
+        INNER JOIN "Track" ON "Track"."id" = "Play"."trackId"
+        WHERE
+          "Play"."userId" = ${userId}
+          AND "Play"."playedAt" >= ${startDate}
+          AND "Play"."playedAt" <= ${endDate}
+        GROUP BY hour
+        ORDER BY hour ASC
+      `,
+    ]);
 
-    // Group by day
-    const dailyData: Record<string, { totalMs: number; playCount: number }> =
-      {};
-    for (const play of plays) {
-      const date = play.playedAt.toISOString().split("T")[0];
-      if (!dailyData[date]) {
-        dailyData[date] = { totalMs: 0, playCount: 0 };
-      }
-      dailyData[date].totalMs += play.track.durationMs;
-      dailyData[date].playCount++;
-    }
+    const dailyListening = dailyRows.map((row) => ({
+      date: row.date,
+      totalMs: Number(row.total_ms),
+      playCount: Number(row.play_count),
+    }));
 
-    const dailyListening = Object.entries(dailyData)
-      .map(([date, data]) => ({
-        date,
-        totalMs: data.totalMs,
-        playCount: data.playCount,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    // Group by hour
-    const hourlyData: Record<number, { totalMs: number; playCount: number }> =
-      {};
-    for (let i = 0; i < 24; i++) {
-      hourlyData[i] = { totalMs: 0, playCount: 0 };
-    }
-    for (const play of plays) {
-      const hour = play.playedAt.getHours();
-      hourlyData[hour].totalMs += play.track.durationMs;
-      hourlyData[hour].playCount++;
-    }
-
-    const hourlyDistribution = Object.entries(hourlyData).map(
-      ([hour, data]) => ({
-        hour: parseInt(hour),
-        totalMs: data.totalMs,
-        playCount: data.playCount,
-      })
+    const hourlyMap = new Map(
+      hourlyRows.map((row) => [
+        Number(row.hour),
+        { totalMs: Number(row.total_ms), playCount: Number(row.play_count) },
+      ])
     );
 
-    // Calculate streak
-    const uniqueDays = Array.from(new Set(plays.map((p) => p.playedAt.toISOString().split("T")[0]))).sort().reverse();
-    let streak = 0;
-    const today = new Date().toISOString().split("T")[0];
+    const hourlyDistribution = Array.from({ length: 24 }, (_, hour) => {
+      const data = hourlyMap.get(hour) || { totalMs: 0, playCount: 0 };
+      return {
+        hour,
+        totalMs: data.totalMs,
+        playCount: data.playCount,
+      };
+    });
 
-    for (let i = 0; i < uniqueDays.length; i++) {
+    // Calculate streak
+    const uniqueDays = new Set(dailyListening.map((day) => day.date));
+    let streak = 0;
+    for (let i = 0; ; i++) {
       const expectedDate = new Date();
+      expectedDate.setHours(0, 0, 0, 0);
       expectedDate.setDate(expectedDate.getDate() - i);
       const expected = expectedDate.toISOString().split("T")[0];
 
-      if (uniqueDays.includes(expected)) {
+      if (uniqueDays.has(expected)) {
         streak++;
-      } else if (i === 0 && uniqueDays[0] !== today) {
+      } else if (i === 0) {
         // If no plays today, check from yesterday
         continue;
       } else {
@@ -86,28 +96,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Heatmap data for the last year
-    const yearAgo = new Date();
-    yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-
-    const heatmapData: { date: string; count: number }[] = [];
-    const heatmapMap = new Map<string, number>();
-
-    for (const play of plays) {
-      const date = play.playedAt.toISOString().split("T")[0];
-      heatmapMap.set(date, (heatmapMap.get(date) || 0) + 1);
-    }
-
-    heatmapMap.forEach((count, date) => {
-      heatmapData.push({ date, count });
-    });
+    const heatmapData = dailyListening.map((day) => ({
+      date: day.date,
+      count: day.playCount,
+    }));
 
     return NextResponse.json({
       dailyListening,
       hourlyDistribution,
       streak,
       heatmapData,
-    });
+    }, { headers: CACHE_HEADERS });
   } catch (error) {
     console.error("Trends API error:", error);
     return NextResponse.json(
