@@ -20,6 +20,7 @@ import {
   ListMusic,
   Flame,
   Download,
+  Upload,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -56,6 +57,7 @@ export const settingsGroup = {
   href: "/dashboard/settings",
   icon: Settings,
   items: [
+    { name: "Import", href: "/dashboard/import", icon: Upload },
     { name: "Wrapped", href: "/dashboard/wrapped", icon: Gift },
     { name: "Export", href: "/dashboard/export", icon: Download },
   ],

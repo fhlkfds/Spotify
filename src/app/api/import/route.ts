@@ -8,6 +8,8 @@ import {
   clearTrackCache,
 } from "@/lib/import";
 
+const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024;
+
 export async function POST(request: NextRequest) {
   try {
     console.log("[Import API] Request received");
@@ -63,6 +65,11 @@ export async function POST(request: NextRequest) {
     for (const file of files) {
       if (!file.name.endsWith(".json")) {
         allErrors.push(`Skipped ${file.name}: not a JSON file`);
+        continue;
+      }
+
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        allErrors.push(`Skipped ${file.name}: exceeds 200MB limit`);
         continue;
       }
 
