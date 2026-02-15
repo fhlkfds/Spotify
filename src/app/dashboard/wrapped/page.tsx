@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import {
   WrappedCard,
   TopItemCard,
@@ -17,13 +15,10 @@ import { HourlyChart } from "@/components/charts/hourly-chart";
 import {
   Music,
   Clock,
-  Users,
   Disc3,
   Calendar,
   Download,
   Share2,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 
 interface WrappedData {
@@ -77,23 +72,49 @@ interface WrappedData {
   dayOfWeekDistribution: { day: number; dayName: string; totalMs: number }[];
 }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// Build list of months from Jan 2015 to the current month
+function buildMonthList(): { year: number; month: number; label: string }[] {
+  const now = new Date();
+  const endYear = now.getFullYear();
+  const endMonth = now.getMonth(); // 0-indexed
+  const months: { year: number; month: number; label: string }[] = [];
+  for (let y = 2015; y <= endYear; y++) {
+    const lastMonth = y === endYear ? endMonth : 11;
+    for (let m = 0; m <= lastMonth; m++) {
+      months.push({ year: y, month: m + 1, label: `${MONTH_NAMES[m]} ${y}` });
+    }
+  }
+  return months;
+}
+
 export default function WrappedPage() {
-  const searchParams = useSearchParams();
+  const monthList = useMemo(() => buildMonthList(), []);
+  const now = new Date();
+  const defaultIndex = monthList.findIndex(
+    (m) => m.year === now.getFullYear() && m.month === now.getMonth() + 1
+  );
+  const [sliderIndex, setSliderIndex] = useState(defaultIndex >= 0 ? defaultIndex : monthList.length - 1);
   const [data, setData] = useState<WrappedData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [periodType, setPeriodType] = useState<"month" | "year">("month");
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [showShareCard, setShowShareCard] = useState(false);
   const shareCardRef = useRef<HTMLDivElement>(null);
+
+  const selectedEntry = monthList[sliderIndex];
 
   const fetchWrapped = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("period", periodType);
-      params.set("year", selectedYear.toString());
-      params.set("month", selectedMonth.toString());
+      const { year, month } = selectedEntry;
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999); // last moment of the month
+      const params = new URLSearchParams();
+      params.set("startDate", startDate.toISOString());
+      params.set("endDate", endDate.toISOString());
       const res = await fetch(`/api/stats/wrapped?${params}`);
       if (res.ok) {
         const wrappedData = await res.json();
@@ -108,38 +129,7 @@ export default function WrappedPage() {
 
   useEffect(() => {
     fetchWrapped();
-  }, [periodType, selectedYear, selectedMonth, searchParams]);
-
-  const handlePrevPeriod = () => {
-    if (periodType === "month") {
-      if (selectedMonth === 1) {
-        setSelectedMonth(12);
-        setSelectedYear(selectedYear - 1);
-      } else {
-        setSelectedMonth(selectedMonth - 1);
-      }
-    } else {
-      setSelectedYear(selectedYear - 1);
-    }
-  };
-
-  const handleNextPeriod = () => {
-    const now = new Date();
-    if (periodType === "month") {
-      if (selectedYear === now.getFullYear() && selectedMonth >= now.getMonth() + 1) {
-        return;
-      }
-      if (selectedMonth === 12) {
-        setSelectedMonth(1);
-        setSelectedYear(selectedYear + 1);
-      } else {
-        setSelectedMonth(selectedMonth + 1);
-      }
-    } else {
-      if (selectedYear >= now.getFullYear()) return;
-      setSelectedYear(selectedYear + 1);
-    }
-  };
+  }, [sliderIndex]);
 
   const downloadShareCard = async () => {
     if (!shareCardRef.current) return;
@@ -151,7 +141,7 @@ export default function WrappedPage() {
         scale: 2,
       });
       const link = document.createElement("a");
-      link.download = `wrapped-${data?.period.replace(/\s+/g, "-")}.png`;
+      link.download = `wrapped-${selectedEntry.label.replace(/\s+/g, "-")}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     } catch (error) {
@@ -188,52 +178,33 @@ export default function WrappedPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Your Wrapped</h1>
-          <p className="text-muted-foreground mt-1">
-            Spotify Wrapped-style summaries for any time period
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex gap-2">
-            <Button
-              variant={periodType === "month" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriodType("month")}
-            >
-              Monthly
-            </Button>
-            <Button
-              variant={periodType === "year" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPeriodType("year")}
-            >
-              Yearly
-            </Button>
-          </div>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold">Your Wrapped</h1>
+        <p className="text-muted-foreground mt-1">
+          Spotify Wrapped-style summaries by month
+        </p>
       </div>
 
-      {/* Period Selector */}
+      {/* Month Slider */}
       <Card className="glass">
-        <CardContent className="py-4">
-          <div className="flex items-center justify-center gap-4">
-            <Button variant="ghost" size="icon" onClick={handlePrevPeriod}>
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <div className="text-center min-w-[200px]">
-              <h2 className="text-2xl font-bold">{data?.period || "Select Period"}</h2>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleNextPeriod}>
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+        <CardContent className="py-6 px-6">
+          <div className="text-center mb-4">
+            <h2 className="text-2xl font-bold">{selectedEntry.label}</h2>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={monthList.length - 1}
+            value={sliderIndex}
+            onChange={(e) => setSliderIndex(Number(e.target.value))}
+            className="w-full accent-spotify-green cursor-pointer"
+          />
+          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+            <span>{monthList[0].label}</span>
+            <span>{monthList[monthList.length - 1].label}</span>
           </div>
         </CardContent>
       </Card>
-
-      {/* Date Range Filter */}
-      <DateRangeFilter />
 
       {!data?.hasData ? (
         <Card className="glass">
@@ -451,7 +422,7 @@ export default function WrappedPage() {
             <div className="flex flex-col items-center gap-4">
               <div ref={shareCardRef}>
                 <ShareableCard
-                  period={data.period}
+                  period={selectedEntry.label}
                   topArtist={data.topArtists[0]}
                   topTrack={data.topTracks[0]}
                   totalHours={data.stats!.totalHours}
